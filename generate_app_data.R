@@ -19,7 +19,7 @@ tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
 
 saveRDS(tmdl_reaches, compress = TRUE, file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
 
-#vroom_write(x = tmdl_reaches, file = file.path("inst", "extdata", "tmdl_reaches_vroom.csv"))
+vroom_write(x = tmdl_reaches, file = file.path("inst", "extdata", "tmdl_reaches_app_vroom.csv"))
 
 # tmdl targets -----------------------------------------------------------------
 
@@ -74,7 +74,10 @@ AU_count_actions <- tmdl_au_app %>%
 # tmdl_actions -----------------------------------------------------------------
 
 tmdl_actions_app <- odeqtmdl::tmdl_actions %>%
-  dplyr::select(action_id, TMDL_name, TMDL_issue_date, EPA_action_date, citation_abbreviated) %>%
+  dplyr::select(action_id, TMDL_name, TMDL_issue_date, EPA_action_date, citation_abbreviated, URL) %>%
+  #dplyr::mutate(URL = dplyr::if_else(is.na(URL),
+  #                                   "https://www.oregon.gov/deq/wq/tmdls/Pages/default.aspx",
+  #                                   URL)) %>%
   dplyr::left_join(AU_count_actions, by = "action_id")
 
 save(tmdl_actions_app, file = file.path("data", "tmdl_actions_app.rda"))
