@@ -17,7 +17,43 @@ load(file = file.path("data", "tmdl_targets_app.rda"))
 load(file = file.path("data", "tmdl_parameters_app.rda"))
 load(file = file.path("data", "tmdl_au_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_app.rda"))
-tmdl_reaches_app <- readRDS(file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
+#tmdl_reaches_app <- readRDS(file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
+
+tmdl_reaches_app <- vroom::vroom(file = file.path("inst", "extdata", "tmdl_reaches_app_vroom.csv"),
+                                 col_names = TRUE,
+                                 col_types = vroom::cols(
+                                   action_id = vroom::col_character(),
+                                   TMDL_wq_limited_parameter = vroom::col_character(),
+                                   TMDL_pollutant = vroom::col_character(),
+                                   TMDL_scope = vroom::col_character(),
+                                   Period = vroom::col_character(),
+                                   #Source = vroom::col_character(),
+                                   #Pollu_ID = vroom::col_number(),
+                                   geo_id = vroom::col_character(),
+                                   #HUC_6 = vroom::col_character(),
+                                   #HU_6_NAME = vroom::col_character(),
+                                   HUC6_full = vroom::col_character(),
+                                   #HUC_8 = vroom::col_character(),
+                                   #HU_8_NAME = vroom::col_character(),
+                                   HUC8_full = vroom::col_character(),
+                                   #HUC_10 = vroom::col_character(),
+                                   #HU_10_NAME = vroom::col_character(),
+                                   #HUC10_full = vroom::col_character(),
+                                   #Permanent_Identifier = vroom::col_character(),
+                                   #ReachCode = vroom::col_number(),
+                                   #GNIS_Name = vroom::col_character(),
+                                   #GNIS_ID = vroom::col_character(),
+                                   AU_ID = vroom::col_character(),
+                                   #AU_Name = vroom::col_character(),
+                                   #AU_Description = vroom::col_character(),
+                                   AU_GNIS_Name = vroom::col_character(),
+                                   #AU_GNIS = vroom::col_character(),
+                                   LengthKM = vroom::col_double(),
+                                   TMDL_name = vroom::col_character(),
+                                   citation_abbreviated = vroom::col_character(),
+                                   TMDL_status = vroom::col_character(),
+                                   .delim = "\t"))
+
 
 tmdl_names <- c(sort(unique(tmdl_au_app$TMDL_name)))
 tmdl_statuses <- c("Active", "Not Active", "In Development")
@@ -33,8 +69,8 @@ tmdl_au_gnis_names <- c(sort(unique(tmdl_reaches_app$AU_GNIS_Name)))
 
 select_tmdl_status <- "Active"
 select_tmdl_scope <- NULL
-select_tmdl_names <- NULL
-select_wql_param <- "Nitrates"
+select_tmdl_names <- c("Tenmile Lakes Watershed Total Maximum Daily Load (TMDL)")
+select_wql_param <- NULL
 select_tmdl_polluntant <- NULL
 select_au_gnis_name <- NULL
 select_au <- NULL
@@ -369,10 +405,22 @@ reactable::reactable(action_data,
 
 #- Target Table -----------------------------------------------------------
 
+geo_id_select <- fr %>%
+  dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
+  dplyr::distinct() %>%
+  dplyr::group_by(TMDL_pollutant) %>%
+  dplyr::mutate(n = dplyr::n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(!(is.na(geo_id) & n > 1))
+
 target_data <- fr %>%
   dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
   dplyr::distinct() %>%
-  dplyr::left_join(tmdl_targets_app, by = c("action_id", "TMDL_pollutant")) %>%
+  dplyr::group_by(TMDL_pollutant) %>%
+  dplyr::mutate(n = dplyr::n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(!(is.na(geo_id) & n > 1)) %>%
+  dplyr::left_join(tmdl_targets_app, by = c("action_id", "TMDL_pollutant", "geo_id")) %>%
   dplyr::mutate(Location = dplyr::case_when(is.na(geo_description) ~ "See TMDL",
                                             TRUE ~ geo_description),
                 field_parameter = dplyr::if_else(is.na(field_parameter),
@@ -384,10 +432,14 @@ target_data <- fr %>%
                 tmdl_period = dplyr::case_when(is.na(season_start) | is.na(season_end) ~ "See TMDL",
                                                TRUE ~ paste(season_start,"-", season_end))) %>%
   dplyr::select(Location,
+                "Location Geo ID" = geo_id,
                 "Field Parameter" = field_parameter,
                 "TMDL Target" = target,
                 "Statistical Base" = stat_base,
+                "Conditionals" = target_conditionals,
                 "Target Period" = tmdl_period,
+                "TMDL Element" = TMDL_element,
+                "TMDL Reference" = target_reference,
                 "TMDL" = TMDL_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(Location, "TMDL Pollutant")
