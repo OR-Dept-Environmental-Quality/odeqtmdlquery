@@ -1,0 +1,97 @@
+@font-face {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.42857;
+  color: rgb(51, 51, 51)
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+.main-header{
+  background-color: #1B7866;
+  width: auto;
+}
+
+.main-header .logo{
+  font-family: "Helvetica Neue", san-serif;
+  font-size: 2.5vmin;
+  width:auto;
+  }
+.box-header .box-title{
+  font-family: "Helvetica Neue", san-serif;
+  font-size: 20px;
+  }
+
+.navbar.navbar-static-top {
+  overflow:visible;
+  z-index:-1
+}
+
+.skin-blue .main-header .navbar {
+    background-color: #1B7866;
+}
+.skin-blue .main-header .logo {
+    background-color: #1B7866;
+    padding-top:10px;
+    padding-bottom:10px;
+    overflow:visible;
+}
+.logo:hover {
+  background-color: #1B7866 !important;
+}
+.dropdown {
+    position: center !important;
+}
+
+.slectize-dropdown {
+  font-size: 12px;
+  line-height: 16px;
+  }
+
+.selectize-dropdown-content {
+  max-height: 225px;
+  padding: 0;
+}
+
+.selectize-dropdown-content .option {
+  border-bottom: 1px dotted #ccc;
+}
+
+.datatables_wrapper {
+    : 50px !important;
+}
+
+.skin-blue .left-side, .skin-blue .main-sidebar, .skin-blue .wrapper {
+    background-color: #ECF0F4;
+}
+.br {
+  display: block;
+  margin-bottom: 0.2em;
+}
+.nav-tabs-custom>.nav-tabs>li.header {
+    line-height: 35px;
+    padding: 0 10px;
+    font-size: 20px;
+    color: #444;
+    font-family: 'Arial';
+}
+.td{
+
+}
+
+optgroup {
+  font-weight: bold;
+}
+
+// Tables
+// ==========================================================================
+
+//
+// Remove most spacing between table cells.
+//
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}

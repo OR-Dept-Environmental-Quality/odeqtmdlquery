@@ -7,8 +7,8 @@ library(reactable)
 
 options(dplyr.summarise.inform = FALSE)
 
-# Tables are based on odeqtmdl version 0.7.0
-odeqtmdl_version <- "0.7.0"
+# odeqtmdl package version that app tables are based on.
+odeqtmdl_version <- "0.8.0"
 
 # Load data --------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ load(file = file.path("data", "tmdl_targets_app.rda"))
 load(file = file.path("data", "tmdl_parameters_app.rda"))
 load(file = file.path("data", "tmdl_au_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_app.rda"))
-tmdl_reaches_app <- readRDS(file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
+tmdl_reaches_app <- readRDS(file = file.path("data", "tmdl_reaches_app.RDS"))
 
 tmdl_names <- c(sort(unique(tmdl_au_app$TMDL_name)))
 tmdl_statuses <- c("Active", "Not Active", "In Development")
@@ -44,196 +44,192 @@ txt_actions <- "The following TMDLs match your query."
 txt_targets <- "The following pollutant targets are included in the TMDLs matching your query. Not all TMDL targets or requirments are listed. See the TMDL document for more information"
 
 txt_i_status <- paste0("TMDL status for an individual parameter or pollutant.","\n\n",
-                    "Active: TMDL is complete, approved by EPA, and active.","\n\n",
-                    "Not Active: TMDL has been withdrawn, disapproved by EPA, or replaced with a newer TMDL.","\n\n",
-                    "In Development: TMDL is being developed.")
+                       "Active: TMDL is complete, approved by EPA, and active.","\n\n",
+                       "Not Active: TMDL has been withdrawn, disapproved by EPA, or replaced with a newer TMDL.","\n\n",
+                       "In Development: TMDL is being developed.")
 
 txt_i_scope <- paste0("Provides information about how the TMDL applies.","\n\n",
                       "TMDL: Identifies reaches where the TMDL was developed to address a category 5 303(d) listing or future 303(d) listing.","\n\n",
                       "Allocation only: Identifies reaches where a TMDL allocation applies but the TMDL does not address a category 5 303(d) listing or future listing in that reach. Typically this situation is applicable for tributaries or canals that are upstream of the reach where the TMDL applies. The pollutant reduction in the upstream reach is needed to achieve the TMDL loading capacity of the downstream reach.","\n\n",
 
-                      "Advisory allocation: Identifies reaches where a TMDL allocation may be applied at the discretion of DEQ, per TMDL language, based on assessment of source loads and if pollutant reduction is needed to achieve a TMDL allocation or loading capacity downstream. See TMDL document for details.")
+                      "Advisory allocation: Identifies reaches where a TMDL allocation may apply based on assessment of source loads and if pollutant reduction is needed to achieve a TMDL allocation or loading capacity downstream. See TMDL document for details and requirements. The TMDL does not address a 303(d) listing or future listing in this reach.")
 
 
 # Shiny UI ---------------------------------------------------------------------
 ui <- shinydashboard::dashboardPage(
   shinydashboard::dashboardHeader(title = "Oregon TMDL Query Tool",
-                  tags$li(
-                    shiny::a(
-                      shiny::img(
+                                  tags$li(
+                                    shiny::a(
+                                      shiny::img(
 
-                        src = 'DEQ-logo-horizontal-white370x74.png',
-                        title = "DEQ Logo",
-                        height = "50px"
-                      ),
-                      href = 'https://www.oregon.gov/deq/Pages/index.aspx',
-                      target = '_blank',
-                      style = "padding-top:10px;"
-                    ),
-                    class = "dropdown"
-                  )),
+                                        src = 'DEQ-logo-horizontal-white370x74.png',
+                                        height = "50px"
+                                      ),
+                                      href = 'https://www.oregon.gov/deq/Pages/index.aspx',
+                                      target = '_blank',
+                                      style = "padding-top:10px;"
+                                    ),
+                                    class = "dropdown"
+                                  )),
   shinydashboard::dashboardSidebar(disable = TRUE),
 
   # Body
   shinydashboard::dashboardBody(
-                # shiny::fluidRow(align = 'left',
-                #          (shinydashboard::box(width = 12,
-                #               shiny::htmlOutput("help"),
-                #               tags$style(
-                #                 "b{font-size: 20px; font-family: Arial;}.col-sm-12{padding-top:15px;}"
-                #               )))),
-
-                tags$header(
-                  tags$link(rel = "stylesheet", type = "text/css", href = "custom.css"),
-                  shiny::br(),
-                  shiny::fluidRow(
-                    shiny::column(width = 5,
-                                  shiny::selectizeInput(inputId = "select_tmdl_names",
-                                                        label = tags$span("TMDL Name",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "Name of the TMDL document")),
-                                                        choices = tmdl_names,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        width = "100%",
-                                                        options = list(plugins = list("remove_button")))),
-                    shiny::column(width = 2,
-                                  shiny::selectizeInput(inputId = "select_tmdl_status",
-                                                        label = tags$span("TMDL status",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = txt_i_status)),
-                                                        choices = tmdl_statuses,
-                                                        selected = "Active",
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%")),
-                    shiny::column(width = 2,
-                                  shiny::selectizeInput(inputId = "select_tmdl_scope",
-                                                        label = tags$span("TMDL scope",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = txt_i_scope)),
-                                                        choices = tmdl_scopes,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%"))
-                  ),
-                  shiny::fluidRow(
-                    shiny::column(width = 3,
-                                  shiny::selectizeInput(inputId = "select_wql_param",
-                                                        label = tags$span("303(d) parameter addressed",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "Water quality limited 303(d) parameter that the TMDL addresses")),
-                                                        choices = tmdl_parameters,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%")),
-                    shiny::column(width = 3
-                                  ,
-                                  shiny::selectizeInput(inputId = "select_tmdl_polluntant",
-                                                        label = tags$span("TMDL pollutant",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "Pollutant causing the water quality impairment.")),
-                                                        choices = tmdl_pollutants,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%"))),
-                  shiny::fluidRow(
-                    shiny::column(width = 3,
-                                  shiny::selectizeInput(inputId = "select_huc6",
-                                                        label = tags$span("Basin",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "Six digit USGS hydrological unit code")),
-                                                        choices = tmdl_huc6,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%")),
-                    shiny::column(width = 3,
-                                  shiny::selectizeInput(inputId = "select_huc8",
-                                                        label = tags$span("Subbasin",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "Eight digit USGS hydrological unit code")),
-                                                        choices = tmdl_huc8,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button")),
-                                                        width = "100%")),
-                    shiny::column(width = 3,
-                                  shiny::selectizeInput(inputId = "select_au",
-                                                        label = tags$span("DEQ Assessment Unit",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "DEQ Assessment Unit ID")),
-                                                        choices = NULL,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button"),
-                                                                       maxOptions = 7000),
-                                                        width = "100%")),
-                    shiny::column(width = 3,
-                                  shiny::selectizeInput(inputId = "select_au_gnis_name",
-                                                        label = tags$span("Assessment Unit GNIS Name",
-                                                                          tags$p(
-                                                                            class = "glyphicon glyphicon-info-sign",
-                                                                            style = "color:#0072B2;",
-                                                                            title = "DEQ Assessment Unit stream GNIS name")),
-                                                        choices = NULL,
-                                                        selected = character(0),
-                                                        multiple = TRUE,
-                                                        options = list(plugins = list("remove_button"),
-                                                                       maxOptions = 15000),
-                                                        width = "100%"))),
-                  shiny::fluidRow(
-                    shiny::column(width = 2,
-                                  shiny::actionButton("filter_button", "Select",  icon("filter"))),
-                    shiny::column(width = 2,
-                                  shiny::actionButton("reset_button", "Reset all")),
-                    shiny::column(width = 2,
-                                  shiny::uiOutput(outputId = "download_button"))),
-                  shiny::fluidRow(style = "padding-top:20px"),
-                  shiny::tabsetPanel(
-                    shiny::tabPanel(title = "TMDL Actions",
-                                    value = "tmdl_actions_tab",
-                                    br(),
-                                    shiny::textOutput(outputId = "text_actions"),
-                                    reactable::reactableOutput(outputId = "tmdl_actions_result",
-                                                               width = "100%")),
-                    shiny::tabPanel(title = "TMDL Pollutant Targets",
-                                    value = "tmdl_targets_tab",
-                                    br(),
-                                    shiny::textOutput(outputId = "text_targets"),
-                                    reactable::reactableOutput(outputId = "tmdl_target_result",
-                                                               width = "100%")),
-                    shiny::tabPanel(title = "Assessment Units",
-                                    value = "tmdl_au_tab",
-                                    br(),
-                                    reactable::reactableOutput(outputId = "tmdl_au_result",
-                                                               width = "100%")),
-                    shiny::tabPanel(title = "GNIS Assessment Units",
-                                    value = "tmdl_au_gnis_tab",
-                                    br(),
-                                    reactable::reactableOutput(outputId = "tmdl_au_gnis_result",
-                                                               width = "100%"))
-                  )
-                )
+    shiny::includeCSS("www/DEQ_web_style.css"),
+    # shiny::fluidRow(align = 'left',
+    #          (shinydashboard::box(width = 12,
+    #               shiny::htmlOutput("help"),
+    #               tags$style(
+    #                 "b{font-size: 20px; font-family: Arial;}.col-sm-12{padding-top:15px;}"
+    #               )))),
+    shiny::br(),
+    shiny::fluidRow(
+      shiny::column(width = 5,
+                    shiny::selectizeInput(inputId = "select_tmdl_names",
+                                          label = tags$span("TMDL Name",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "Name of the TMDL document")),
+                                          choices = tmdl_names,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          width = "100%",
+                                          options = list(plugins = list("remove_button")))),
+      shiny::column(width = 2,
+                    shiny::selectizeInput(inputId = "select_tmdl_status",
+                                          label = tags$span("TMDL status",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = txt_i_status)),
+                                          choices = tmdl_statuses,
+                                          selected = "Active",
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%")),
+      shiny::column(width = 2,
+                    shiny::selectizeInput(inputId = "select_tmdl_scope",
+                                          label = tags$span("TMDL scope",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = txt_i_scope)),
+                                          choices = tmdl_scopes,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%"))
+    ),
+    shiny::fluidRow(
+      shiny::column(width = 3,
+                    shiny::selectizeInput(inputId = "select_wql_param",
+                                          label = tags$span("303(d) parameter addressed",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "Water quality limited 303(d) parameter that the TMDL addresses")),
+                                          choices = tmdl_parameters,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%")),
+      shiny::column(width = 3
+                    ,
+                    shiny::selectizeInput(inputId = "select_tmdl_polluntant",
+                                          label = tags$span("TMDL pollutant",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "Pollutant causing the water quality impairment.")),
+                                          choices = tmdl_pollutants,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%"))),
+    shiny::fluidRow(
+      shiny::column(width = 3,
+                    shiny::selectizeInput(inputId = "select_huc6",
+                                          label = tags$span("Basin",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "Six digit USGS hydrological unit code")),
+                                          choices = tmdl_huc6,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%")),
+      shiny::column(width = 3,
+                    shiny::selectizeInput(inputId = "select_huc8",
+                                          label = tags$span("Subbasin",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "Eight digit USGS hydrological unit code")),
+                                          choices = tmdl_huc8,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button")),
+                                          width = "100%")),
+      shiny::column(width = 3,
+                    shiny::selectizeInput(inputId = "select_au",
+                                          label = tags$span("DEQ Assessment Unit",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "DEQ Assessment Unit ID")),
+                                          choices = NULL,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button"),
+                                                         maxOptions = 7000),
+                                          width = "100%")),
+      shiny::column(width = 3,
+                    shiny::selectizeInput(inputId = "select_au_gnis_name",
+                                          label = tags$span("Assessment Unit GNIS Name",
+                                                            tags$p(
+                                                              class = "glyphicon glyphicon-info-sign",
+                                                              style = "color:#0072B2;",
+                                                              title = "DEQ Assessment Unit stream GNIS name")),
+                                          choices = NULL,
+                                          selected = character(0),
+                                          multiple = TRUE,
+                                          options = list(plugins = list("remove_button"),
+                                                         maxOptions = 15000),
+                                          width = "100%"))),
+    shiny::fluidRow(
+      shiny::column(width = 2,
+                    shiny::actionButton("filter_button", "Select",  icon("filter"))),
+      shiny::column(width = 2,
+                    shiny::actionButton("reset_button", "Reset all")),
+      shiny::column(width = 2,
+                    shiny::uiOutput(outputId = "download_button"))),
+    shiny::fluidRow(style = "padding-top:20px"),
+    shiny::tabsetPanel(
+      shiny::tabPanel(title = "TMDL Actions",
+                      value = "tmdl_actions_tab",
+                      br(),
+                      shiny::textOutput(outputId = "text_actions"),
+                      reactable::reactableOutput(outputId = "tmdl_actions_result",
+                                                 width = "100%")),
+      shiny::tabPanel(title = "TMDL Pollutant Targets",
+                      value = "tmdl_targets_tab",
+                      br(),
+                      shiny::textOutput(outputId = "text_targets"),
+                      reactable::reactableOutput(outputId = "tmdl_target_result",
+                                                 width = "100%")),
+      shiny::tabPanel(title = "Assessment Units",
+                      value = "tmdl_au_tab",
+                      br(),
+                      reactable::reactableOutput(outputId = "tmdl_au_result",
+                                                 width = "100%")),
+      shiny::tabPanel(title = "GNIS Assessment Units",
+                      value = "tmdl_au_gnis_tab",
+                      br(),
+                      reactable::reactableOutput(outputId = "tmdl_au_gnis_result",
+                                                 width = "100%"))
+    )
   )
 )
 
@@ -484,7 +480,7 @@ server <- function(input, output, session) {
 
       df <- fau %>%
         dplyr::select(TMDL_name, TMDL_issue_date, EPA_action_date,
-                        action_id, TMDL_wq_limited_parameter) %>%
+                      action_id, TMDL_wq_limited_parameter) %>%
         dplyr::distinct() %>%
         dplyr::left_join(action_param_count_data(),
                          by = c("action_id", "TMDL_wq_limited_parameter")) %>%
@@ -524,6 +520,8 @@ server <- function(input, output, session) {
                       "TMDL Completion Date" = TMDL_issue_date,
                       "EPA Approval Date" = EPA_action_date,
                       "EPA Action ID" = action_id,
+                      "TMDL Status" = TMDL_status,
+                      "TMDL Status Comment" = TMDL_status_comment,
                       "303(d) Parameters Addressed" = TMDL_wq_limited_parameter,
                       "TMDL Pollutants" = TMDL_pollutant,
                       "Count of Assessment Units Based on Query" = AU_count,
@@ -556,6 +554,9 @@ server <- function(input, output, session) {
                                                                      format = reactable::colFormat(date = TRUE)),
                              "EPA Action ID" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center",
                                                                  align = "right"),
+                             "TMDL Status" = reactable::colDef(maxWidth = 110,
+                                                               align = "center", headerVAlign = "center"),
+                             "TMDL Status Comment" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "303(d) Parameters Addressed" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "TMDL Pollutants" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "Count of Assessment Units Based on Query" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
@@ -587,8 +588,8 @@ server <- function(input, output, session) {
                                                                                                                                   maxWidth = 175,
                                                                                                                                   headerVAlign = "center"),
                                                                    "Total Count of Assessment Units Addressed by TMDL" = reactable::colDef(minWidth = 100,
-                                                                                                                                      maxWidth = 175,
-                                                                                                                                      headerVAlign = "center")),
+                                                                                                                                           maxWidth = 175,
+                                                                                                                                           headerVAlign = "center")),
                                                                  outlined = TRUE,
                                                                  bordered = TRUE,
                                                                  fullWidth = FALSE))},
@@ -621,10 +622,13 @@ server <- function(input, output, session) {
                                                 TRUE ~ paste(target_value, target_units)),
                       tmdl_period = dplyr::case_when(is.na(season_start) | is.na(season_end) ~ "See TMDL",
                                                      TRUE ~ paste(season_start,"-", season_end))) %>%
-        dplyr::select(Location,
+        dplyr::select("Field Parameter" = field_parameter,
+                      Location,
                       "Location Geo ID" = geo_id,
-                      "Field Parameter" = field_parameter,
                       "TMDL Target" = target,
+                      "Target Value" = target_value,
+                      "Target Units" = target_units,
+                      "Target Type" = target_type,
                       "Statistical Base" = stat_base,
                       "Conditionals" = target_conditionals,
                       "Target Period" = tmdl_period,
@@ -632,7 +636,7 @@ server <- function(input, output, session) {
                       "TMDL Reference" = target_reference,
                       "TMDL" = TMDL_name) %>%
         dplyr::distinct() %>%
-        dplyr::arrange(Location, "TMDL Pollutant")
+        dplyr::arrange("Field Parameter", Location)
 
     })
 
@@ -641,10 +645,13 @@ server <- function(input, output, session) {
 
       reactable::reactable(data = shiny::isolate(target_data()),
                            columns = list(
+                             "Field Parameter" = reactable::colDef(headerVAlign = "center"),
                              "Location" = reactable::colDef(headerVAlign = "center"),
                              "Location Geo ID" = reactable::colDef(headerVAlign = "center"),
-                             "Field Parameter" = reactable::colDef(headerVAlign = "center"),
                              "TMDL Target" = reactable::colDef(headerVAlign = "center"),
+                             "Target Value" = reactable::colDef(show = FALSE),
+                             "Target Units" = reactable::colDef(show = FALSE),
+                             "Target Type" = reactable::colDef(headerVAlign = "center"),
                              "Statistical Base" = reactable::colDef(headerVAlign = "center"),
                              "Conditionals" = reactable::colDef(headerVAlign = "center"),
                              "Target Period" = reactable::colDef(headerVAlign = "center"),
@@ -749,34 +756,34 @@ server <- function(input, output, session) {
 
         options(openxlsx.dateFormat = "mm/dd/yyyy")
         openxlsx::write.xlsx(list(TMDL_actions = shiny::isolate(action_data()),
-                                                          TMDL_Pollutant_Targets = shiny::isolate(target_data()),
-                                                          Assessment_Units = shiny::isolate(au_data()),
-                                                          GNIS_Assessment_Units = shiny::isolate(au_gnis_data()),
-                                                          Query = shiny::isolate(query_table())),
-                                                     file = file,
-                                                     colWidths = "auto",
-                                                     firstActiveRow = c(2,2,2,2,2),
-                                                     firstRow = c(TRUE,TRUE,TRUE,TRUE,TRUE),
-                                                     rowNames = c(FALSE, FALSE, FALSE, FALSE,FALSE),
-                                                     borders = "rows",
-                                                     startCol = c(1,1,1,1), startRow = c(1,1,1,1,1),
-                                                     headerStyle = openxlsx::createStyle(fgFill = "#000000",
-                                                                                         halign = "LEFT",
-                                                                                         textDecoration = "Bold",
-                                                                                         wrapText = TRUE,
-                                                                                         border = "Bottom",
-                                                                                         fontColour = "white",
-                                                                                         fontName = "Arial",
-                                                                                         fontSize = 10))
-        }
-      )
+                                  TMDL_Pollutant_Targets = shiny::isolate(target_data()),
+                                  Assessment_Units = shiny::isolate(au_data()),
+                                  GNIS_Assessment_Units = shiny::isolate(au_gnis_data()),
+                                  Query = shiny::isolate(query_table())),
+                             file = file,
+                             colWidths = "auto",
+                             firstActiveRow = c(2,2,2,2,2),
+                             firstRow = c(TRUE,TRUE,TRUE,TRUE,TRUE),
+                             rowNames = c(FALSE, FALSE, FALSE, FALSE,FALSE),
+                             borders = "rows",
+                             startCol = c(1,1,1,1), startRow = c(1,1,1,1,1),
+                             headerStyle = openxlsx::createStyle(fgFill = "#000000",
+                                                                 halign = "LEFT",
+                                                                 textDecoration = "Bold",
+                                                                 wrapText = TRUE,
+                                                                 border = "Bottom",
+                                                                 fontColour = "white",
+                                                                 fontName = "Arial",
+                                                                 fontSize = 10))
+      }
+    )
 
     #- Download Button Render---------------------------------------------------
     output$download_button <- shiny::renderUI({
 
       tags$span(shiny::downloadButton(outputId = "download_query_results",
-                            label = "Download"), tags$p("Download query results as xlsx"))
-      })
+                                      label = "Download"), tags$p("Download query results as xlsx"))
+    })
 
   })
 

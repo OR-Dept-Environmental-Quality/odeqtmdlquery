@@ -17,9 +17,9 @@ tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
                          "AU_ID", "AU_GNIS_Name", "LengthKM",
                          "TMDL_name", "citation_abbreviated", "TMDL_status")))
 
-saveRDS(tmdl_reaches, compress = TRUE, file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
+saveRDS(tmdl_reaches, compress = TRUE, file = file.path("data", "tmdl_reaches_app.RDS"))
 
-vroom_write(x = tmdl_reaches, file = file.path("inst", "extdata", "tmdl_reaches_app_vroom.csv"))
+#vroom_write(x = tmdl_reaches, file = file.path("data", "tmdl_reaches_app_vroom.csv"))
 
 # tmdl targets -----------------------------------------------------------------
 
@@ -73,8 +73,24 @@ AU_count_actions <- tmdl_au_app %>%
 
 # tmdl_actions -----------------------------------------------------------------
 
+tmdl_status_comment <- odeqtmdl::tmdl_parameters %>%
+  select(action_id, TMDL_status_comment) %>%
+  drop_na(TMDL_status_comment) %>%
+  group_by(action_id) %>%
+  summarise(TMDL_status_comment = unique(TMDL_status_comment)) %>%
+  distinct()
+
+
+tmdl_status <- odeqtmdl::tmdl_parameters %>%
+  select(action_id, TMDL_status) %>%
+  group_by(action_id) %>%
+  summarise(TMDL_status = paste0(sort(unique(TMDL_status)), collapse = " and ")) %>%
+  distinct() %>%
+  left_join(tmdl_status_comment, by = "action_id")
+
 tmdl_actions_app <- odeqtmdl::tmdl_actions %>%
-  dplyr::select(action_id, TMDL_name, TMDL_issue_date, EPA_action_date, citation_abbreviated, URL) %>%
+  dplyr::left_join(tmdl_status, by = "action_id") %>%
+  dplyr::select(action_id, TMDL_name, TMDL_issue_date, EPA_action_date, TMDL_status, TMDL_status_comment, citation_abbreviated, URL) %>%
   #dplyr::mutate(URL = dplyr::if_else(is.na(URL),
   #                                   "https://www.oregon.gov/deq/wq/tmdls/Pages/default.aspx",
   #                                   URL)) %>%
