@@ -86,6 +86,8 @@ tmdl_status <- odeqtmdl::tmdl_parameters %>%
   group_by(action_id) %>%
   summarise(TMDL_status = paste0(sort(unique(TMDL_status)), collapse = " and ")) %>%
   distinct() %>%
+  ungroup() %>%
+  mutate(TMDL_status = if_else(TMDL_status == "Active and Not Active", "Some parameters Active", TMDL_status)) %>%
   left_join(tmdl_status_comment, by = "action_id")
 
 tmdl_actions_app <- odeqtmdl::tmdl_actions %>%
