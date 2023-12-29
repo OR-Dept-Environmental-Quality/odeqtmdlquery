@@ -14,7 +14,7 @@ tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
   dplyr::select(any_of(c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant",
                          "TMDL_scope", "Period", "geo_id", "HUC6_full", "HUC8_full",
-                         "AU_ID", "AU_GNIS_Name", "LengthKM",
+                         "GNIS_Name", "AU_ID", "AU_GNIS", "LengthKM",
                          "TMDL_name", "citation_abbreviated", "TMDL_status")))
 
 saveRDS(tmdl_reaches, compress = TRUE, file = file.path("data", "tmdl_reaches_app.RDS"))

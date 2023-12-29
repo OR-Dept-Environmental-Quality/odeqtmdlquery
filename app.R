@@ -8,7 +8,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.8.1"
+odeqtmdl_version <- "0.8.3"
 
 # Load data --------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ tmdl_huc8 <- c(sort(unique(tmdl_reaches_app$HUC8_full)))
 tmdl_parameters <- c(sort(unique(tmdl_reaches_app$TMDL_wq_limited_parameter)))
 tmdl_pollutants <- c(sort(unique(tmdl_reaches_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
-tmdl_au_gnis_names <- c(sort(unique(tmdl_reaches_app$AU_GNIS_Name)))
+tmdl_gnis_names <- c(sort(unique(tmdl_reaches_app$GNIS_Name)))
 
 # Help Text : coming soon
 # str1 <- "<b>Welcome!</b>"
@@ -41,7 +41,11 @@ tmdl_au_gnis_names <- c(sort(unique(tmdl_reaches_app$AU_GNIS_Name)))
 
 txt_actions <- "The following TMDLs match your query."
 
-txt_targets <- "The following pollutant targets are included in the TMDLs matching your query. Not all TMDL targets or requirments are listed. See the TMDL document for more information"
+txt_targets <- "The following pollutant targets are included in the TMDLs matching your query. Not all TMDL targets or requirments are listed. See the TMDL document for more information."
+
+txt_au <- "The following DEQ Assessment Units are included in the TMDLs matching your query."
+
+txt_au_gnis <- "The following DEQ GNIS Assessment Units are included in the TMDLs matching your query."
 
 txt_i_status <- paste0("TMDL status for an individual parameter or pollutant.","\n\n",
                        "Active: TMDL is complete, approved by EPA, and active.","\n\n",
@@ -186,12 +190,12 @@ ui <- shinydashboard::dashboardPage(
                                                          maxOptions = 7000),
                                           width = "100%")),
       shiny::column(width = 3,
-                    shiny::selectizeInput(inputId = "select_au_gnis_name",
-                                          label = tags$span("Assessment Unit GNIS Name",
+                    shiny::selectizeInput(inputId = "select_gnis_name",
+                                          label = tags$span("Stream Name",
                                                             tags$p(
                                                               class = "glyphicon glyphicon-info-sign",
                                                               style = "color:#0072B2;",
-                                                              title = "DEQ Assessment Unit stream GNIS name")),
+                                                              title = "Stream GNIS name")),
                                           choices = NULL,
                                           selected = character(0),
                                           multiple = TRUE,
@@ -222,11 +226,13 @@ ui <- shinydashboard::dashboardPage(
       shiny::tabPanel(title = "Assessment Units",
                       value = "tmdl_au_tab",
                       br(),
+                      shiny::textOutput(outputId = "text_au"),
                       reactable::reactableOutput(outputId = "tmdl_au_result",
                                                  width = "100%")),
       shiny::tabPanel(title = "GNIS Assessment Units",
                       value = "tmdl_au_gnis_tab",
                       br(),
+                      shiny::textOutput(outputId = "text_au_gnis"),
                       reactable::reactableOutput(outputId = "tmdl_au_gnis_result",
                                                  width = "100%"))
     )
@@ -239,7 +245,7 @@ server <- function(input, output, session) {
 
 
   shiny::updateSelectizeInput(inputId = "select_au", choices = tmdl_au_ids, selected = character(0), server = TRUE)
-  shiny::updateSelectizeInput(inputId = "select_au_gnis_name", choices = tmdl_au_gnis_names, selected = character(0), server = TRUE)
+  shiny::updateSelectizeInput(inputId = "select_gnis_name", choices = tmdl_gnis_names, selected = character(0), server = TRUE)
 
   # Help Text
   # output$help <- shiny::renderUI({txt_help})
@@ -295,9 +301,9 @@ server <- function(input, output, session) {
           dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
       }
 
-      if (!is.null(input$select_au_gnis_name)) {
+      if (!is.null(input$select_gnis_name)) {
         fr <- fr %>%
-          dplyr::filter(AU_GNIS_Name %in% input$select_au_gnis_name)
+          dplyr::filter(GNIS_Name %in% input$select_gnis_name)
       }
 
       if (!is.null(input$select_au)) {
@@ -315,9 +321,14 @@ server <- function(input, output, session) {
           dplyr::filter(HUC8_full %in% input$select_huc8)
       }
 
-      if (!is.null(input$select_au_gnis_name)) {
-        f_gnis_au_ids <- fr %>%
+      if (!is.null(input$select_gnis_name)) {
+        f_au_ids <- fr %>%
           dplyr::pull(AU_ID) %>%
+          unique()
+
+        f_au_gnis <- fr %>%
+          filter(!is.na(AU_GNIS)) %>%
+          dplyr::pull(AU_GNIS) %>%
           unique()
       }
 
@@ -360,9 +371,9 @@ server <- function(input, output, session) {
           dplyr::filter(AU_ID %in% input$select_au)
       }
 
-      if (!is.null(input$select_au_gnis_name)) {
+      if (!is.null(input$select_gnis_name)) {
         fau <- fau %>%
-          dplyr::filter(AU_ID %in% f_gnis_au_ids)
+          dplyr::filter(AU_ID %in% f_au_ids)
       }
 
       if (!is.null(input$select_huc6)) {
@@ -413,9 +424,9 @@ server <- function(input, output, session) {
           dplyr::filter(AU_ID %in% input$select_au)
       }
 
-      if (!is.null(input$select_au_gnis_name)) {
+      if (!is.null(input$select_gnis_name)) {
         fau_gnis <- fau_gnis %>%
-          dplyr::filter(AU_GNIS_Name %in% input$select_au_gnis_name)
+          dplyr::filter(AU_GNIS %in% f_au_gnis)
       }
 
       if (!is.null(input$select_huc6)) {
@@ -436,6 +447,8 @@ server <- function(input, output, session) {
     # Text updates
     output$text_actions <- shiny::renderText({txt_actions})
     output$text_targets <- shiny::renderText({txt_targets})
+    output$text_au <- shiny::renderText({txt_au})
+    output$text_au_gnis <- shiny::renderText({txt_au_gnis})
 
     # Query table reactive -----------------------------------------------------
     query_table <- shiny::reactive({
@@ -448,7 +461,7 @@ server <- function(input, output, session) {
                  TMDL_Scope = paste(collapse = "; ", input$select_tmdl_scope),
                  Parameter_303d = paste(collapse =  "; ", input$select_wql_param),
                  TMDL_Pollutant = paste(collapse =  "; ", input$select_tmdl_polluntant),
-                 AU_GNIS_Name = paste(collapse =  "; ", input$select_au_gnis_name),
+                 GNIS_Name = paste(collapse =  "; ", input$select_gnis_name),
                  AU = paste(collapse =  "; ", input$select_au),
                  Basin = paste(collapse =  "; ", input$select_huc6),
                  Subbasin = paste(collapse =  "; ", input$select_huc8))
@@ -496,7 +509,7 @@ server <- function(input, output, session) {
                       "303(d) Parameters Addressed" = TMDL_wq_limited_parameter,
                       "TMDL Pollutants" = TMDL_pollutant,
                       "Count of Assessment Units Based on Query" = AU_count,
-                      "Total Count of Assessment Units Addressed by TMDL" = AU_count_total)
+                      "Total Count of Assessment Units Addressed by TMDL Action" = AU_count_total)
 
     })
 
@@ -525,7 +538,7 @@ server <- function(input, output, session) {
                       "303(d) Parameters Addressed" = TMDL_wq_limited_parameter,
                       "TMDL Pollutants" = TMDL_pollutant,
                       "Count of Assessment Units Based on Query" = AU_count,
-                      "Total Count of Assessment Units Addressed by TMDL" = AU_count_total,
+                      "Total Count of Assessment Units Addressed by TMDL Action" = AU_count_total,
                       URL)
 
     })
@@ -560,7 +573,7 @@ server <- function(input, output, session) {
                              "303(d) Parameters Addressed" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "TMDL Pollutants" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "Count of Assessment Units Based on Query" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
-                             "Total Count of Assessment Units Addressed by TMDL" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
+                             "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
                              "URL" = reactable::colDef(show = FALSE)),
                            sortable = TRUE,
                            showSortIcon = TRUE,
@@ -572,7 +585,7 @@ server <- function(input, output, session) {
                                                         c("303(d) Parameters Addressed",
                                                           "TMDL Pollutants",
                                                           "Count of Assessment Units Based on Query",
-                                                          "Total Count of Assessment Units Addressed by TMDL")]
+                                                          "Total Count of Assessment Units Addressed by TMDL Action")]
 
                              htmltools::div(style = "padding: 1rem",
                                             align = "right",
@@ -587,7 +600,7 @@ server <- function(input, output, session) {
                                                                    "Count of Assessment Units Based on Query" = reactable::colDef(minWidth = 100,
                                                                                                                                   maxWidth = 175,
                                                                                                                                   headerVAlign = "center"),
-                                                                   "Total Count of Assessment Units Addressed by TMDL" = reactable::colDef(minWidth = 100,
+                                                                   "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(minWidth = 100,
                                                                                                                                            maxWidth = 175,
                                                                                                                                            headerVAlign = "center")),
                                                                  outlined = TRUE,
