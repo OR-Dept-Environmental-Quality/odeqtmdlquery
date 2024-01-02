@@ -7,19 +7,34 @@ library(odeqtmdl)
 
 # tmdl_reaches -----------------------------------------------------------------
 
-tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
+# tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
+#   dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name", "citation_abbreviated")],
+#                    by = "action_id") %>%
+#   dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant", "TMDL_status")],
+#                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
+#   dplyr::select(any_of(c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant",
+#                          "TMDL_scope", "Period", "geo_id", "HUC6_full", "HUC8_full",
+#                          "GNIS_Name", "AU_ID", "AU_GNIS", "LengthKM",
+#                          "TMDL_name", "citation_abbreviated", "TMDL_status")))
+#
+# saveRDS(tmdl_reaches, compress = TRUE, file = file.path("data", "tmdl_reaches_app.RDS"))
+
+#vroom_write(x = tmdl_reaches, file = file.path("data", "tmdl_reaches_app_vroom.csv"))
+
+tmdl_geo_id_app <- odeqtmdl::tmdl_reaches() %>%
   dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name", "citation_abbreviated")],
                    by = "action_id") %>%
   dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant", "TMDL_status")],
                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
+  dplyr::filter(!is.na(geo_id)) %>%
+  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
   dplyr::select(any_of(c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant",
-                         "TMDL_scope", "Period", "geo_id", "HUC6_full", "HUC8_full",
-                         "GNIS_Name", "AU_ID", "AU_GNIS", "LengthKM",
-                         "TMDL_name", "citation_abbreviated", "TMDL_status")))
+                         "TMDL_scope", "geo_id", "HUC6_full", "HUC8_full",
+                         "AU_ID", "AU_Name", "AU_GNIS", "AU_GNIS_Name",
+                         "TMDL_name", "citation_abbreviated", "TMDL_status"))) %>%
+  dplyr::distinct()
 
-saveRDS(tmdl_reaches, compress = TRUE, file = file.path("data", "tmdl_reaches_app.RDS"))
-
-#vroom_write(x = tmdl_reaches, file = file.path("data", "tmdl_reaches_app_vroom.csv"))
+save(tmdl_geo_id_app, file = file.path("data", "tmdl_geo_id_app.rda"))
 
 # tmdl targets -----------------------------------------------------------------
 
@@ -36,6 +51,7 @@ tmdl_au_app <- odeqtmdl::tmdl_au %>%
                                               "TMDL_issue_date", "EPA_action_date",
                                               "citation_abbreviated")],
                    by = "action_id") %>%
+  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
   dplyr::left_join(odeqtmdl::tmdl_parameters,
                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant"))
 
@@ -44,10 +60,18 @@ save(tmdl_au_app, file = file.path("data", "tmdl_au_app.rda"))
 tmdl_au_gnis_app <- odeqtmdl::tmdl_au_gnis %>%
   dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name", "citation_abbreviated")],
                    by = "action_id") %>%
+  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
   dplyr::left_join(odeqtmdl::tmdl_parameters,
                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant"))
 
 save(tmdl_au_gnis_app, file = file.path("data", "tmdl_au_gnis_app.rda"))
+
+tmdl_au_gnis_LU <- tmdl_au_gnis_app %>%
+  dplyr::filter(!is.na(AU_GNIS_Name)) %>%
+  dplyr::select(AU_ID, AU_Name, AU_GNIS_Name) %>%
+  dplyr::distinct()
+
+save(tmdl_au_gnis_LU, file = file.path("data", "tmdl_au_gnis_LU.rda"))
 
 # AU counts --------------------------------------------------------------------
 
@@ -92,6 +116,7 @@ tmdl_status <- odeqtmdl::tmdl_parameters %>%
 
 tmdl_actions_app <- odeqtmdl::tmdl_actions %>%
   dplyr::left_join(tmdl_status, by = "action_id") %>%
+  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
   dplyr::select(action_id, TMDL_name, TMDL_issue_date, EPA_action_date, TMDL_status, TMDL_status_comment, citation_abbreviated, URL) %>%
   #dplyr::mutate(URL = dplyr::if_else(is.na(URL),
   #                                   "https://www.oregon.gov/deq/wq/tmdls/Pages/default.aspx",

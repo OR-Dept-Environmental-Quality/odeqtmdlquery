@@ -8,7 +8,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.8.3"
+odeqtmdl_version <- "0.8.4"
 
 # Load data --------------------------------------------------------------------
 
@@ -17,17 +17,24 @@ load(file = file.path("data", "tmdl_targets_app.rda"))
 load(file = file.path("data", "tmdl_parameters_app.rda"))
 load(file = file.path("data", "tmdl_au_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_app.rda"))
-tmdl_reaches_app <- readRDS(file = file.path("data", "tmdl_reaches_app.RDS"))
+load(file = file.path("data", "tmdl_au_gnis_LU.rda"))
+load(file = file.path("data", "tmdl_geo_id_app.rda"))
 
 tmdl_names <- c(sort(unique(tmdl_au_app$TMDL_name)))
 tmdl_statuses <- c("Active", "Not Active", "In Development")
 tmdl_scopes <- c("TMDL", "Allocation only", "Advisory allocation")
-tmdl_huc6 <- c(sort(unique(tmdl_reaches_app$HUC6_full)))
-tmdl_huc8 <- c(sort(unique(tmdl_reaches_app$HUC8_full)))
-tmdl_parameters <- c(sort(unique(tmdl_reaches_app$TMDL_wq_limited_parameter)))
-tmdl_pollutants <- c(sort(unique(tmdl_reaches_app$TMDL_pollutant)))
+tmdl_huc6 <- c(sort(unique(tmdl_au_app$HUC6_full)))
+tmdl_huc8 <- c(sort(unique(tmdl_au_app$HUC8_full)))
+tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_wq_limited_parameter)))
+tmdl_pollutants <- c(sort(unique(tmdl_au_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
-tmdl_gnis_names <- c(sort(unique(tmdl_reaches_app$GNIS_Name)))
+
+
+tmdl_au_names <- unique(tmdl_au_app$AU_Name)
+tmdl_au_gnis_names <- unique(tmdl_au_gnis_app$AU_GNIS_Name)
+
+tmdl_au_names_all <- sort(unique(c(tmdl_au_names,
+                                   tmdl_au_gnis_names)))
 
 # Help Text : coming soon
 # str1 <- "<b>Welcome!</b>"
@@ -158,7 +165,7 @@ ui <- shinydashboard::dashboardPage(
                                                             tags$p(
                                                               class = "glyphicon glyphicon-info-sign",
                                                               style = "color:#0072B2;",
-                                                              title = "Six digit USGS hydrological unit code")),
+                                                              title = "Basin name and Six digit USGS hydrological unit code (HUC6)")),
                                           choices = tmdl_huc6,
                                           selected = character(0),
                                           multiple = TRUE,
@@ -170,7 +177,7 @@ ui <- shinydashboard::dashboardPage(
                                                             tags$p(
                                                               class = "glyphicon glyphicon-info-sign",
                                                               style = "color:#0072B2;",
-                                                              title = "Eight digit USGS hydrological unit code")),
+                                                              title = "Subbasin name and eight digit USGS hydrological unit code (HUC8)")),
                                           choices = tmdl_huc8,
                                           selected = character(0),
                                           multiple = TRUE,
@@ -178,7 +185,7 @@ ui <- shinydashboard::dashboardPage(
                                           width = "100%")),
       shiny::column(width = 3,
                     shiny::selectizeInput(inputId = "select_au",
-                                          label = tags$span("DEQ Assessment Unit",
+                                          label = tags$span("Assessment Unit ID",
                                                             tags$p(
                                                               class = "glyphicon glyphicon-info-sign",
                                                               style = "color:#0072B2;",
@@ -190,12 +197,12 @@ ui <- shinydashboard::dashboardPage(
                                                          maxOptions = 7000),
                                           width = "100%")),
       shiny::column(width = 3,
-                    shiny::selectizeInput(inputId = "select_gnis_name",
-                                          label = tags$span("Stream Name",
+                    shiny::selectizeInput(inputId = "select_au_name",
+                                          label = tags$span("Assessment Unit Name or Stream Name",
                                                             tags$p(
                                                               class = "glyphicon glyphicon-info-sign",
                                                               style = "color:#0072B2;",
-                                                              title = "Stream GNIS name")),
+                                                              title = "DEQ assessment unit name or GNIS assessment unit name (stream name) in watershed assessment units")),
                                           choices = NULL,
                                           selected = character(0),
                                           multiple = TRUE,
@@ -245,7 +252,7 @@ server <- function(input, output, session) {
 
 
   shiny::updateSelectizeInput(inputId = "select_au", choices = tmdl_au_ids, selected = character(0), server = TRUE)
-  shiny::updateSelectizeInput(inputId = "select_gnis_name", choices = tmdl_gnis_names, selected = character(0), server = TRUE)
+  shiny::updateSelectizeInput(inputId = "select_au_name", choices = tmdl_au_names_all, selected = character(0), server = TRUE)
 
   # Help Text
   # output$help <- shiny::renderUI({txt_help})
@@ -271,9 +278,25 @@ server <- function(input, output, session) {
   #- Filter Button ----
   shiny::observeEvent(input$filter_button, {
 
-    # Filter tmdl_reaches based on inputs = fr
+    # Get names from the right field
+    select_au_name_filter <- tmdl_au_names[tmdl_au_names %in% input$select_au_name]
+    select_au_gnis_name_filter <- tmdl_au_gnis_names[tmdl_au_gnis_names %in% input$select_au_name]
+
+    if (length(select_au_gnis_name_filter) > 0) {
+
+      select_au_name_filter2 <- tmdl_au_gnis_LU %>%
+        dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter) %>%
+        dplyr::pull(AU_Name) %>%
+        unique()
+
+      select_au_name_filter <- unique(c(select_au_name_filter, select_au_name_filter2))
+
+    }
+
+
+    # Filter to geo_ids based on inputs = fr
     {
-      fr <- tmdl_reaches_app
+      fr <- tmdl_geo_id_app
 
       if (!is.null(input$select_tmdl_status)) {
 
@@ -301,9 +324,14 @@ server <- function(input, output, session) {
           dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
       }
 
-      if (!is.null(input$select_gnis_name)) {
+      if (length(select_au_name_filter) > 0) {
         fr <- fr %>%
-          dplyr::filter(GNIS_Name %in% input$select_gnis_name)
+          dplyr::filter(AU_Name %in% select_au_name_filter)
+      }
+
+      if (length(select_au_gnis_name_filter) > 0) {
+        fr <- fr %>%
+          dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter)
       }
 
       if (!is.null(input$select_au)) {
@@ -320,20 +348,6 @@ server <- function(input, output, session) {
         fr <- fr %>%
           dplyr::filter(HUC8_full %in% input$select_huc8)
       }
-
-      if (!is.null(input$select_gnis_name)) {
-        f_au_ids <- fr %>%
-          dplyr::pull(AU_ID) %>%
-          unique()
-
-        f_au_gnis <- fr %>%
-          filter(!is.na(AU_GNIS)) %>%
-          dplyr::pull(AU_GNIS) %>%
-          unique()
-      }
-
-      fr <- fr %>%
-        dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")"))
 
     }
 
@@ -371,10 +385,11 @@ server <- function(input, output, session) {
           dplyr::filter(AU_ID %in% input$select_au)
       }
 
-      if (!is.null(input$select_gnis_name)) {
+      if (length(select_au_name_filter) > 0) {
         fau <- fau %>%
-          dplyr::filter(AU_ID %in% f_au_ids)
+          dplyr::filter(AU_Name %in% select_au_name_filter)
       }
+
 
       if (!is.null(input$select_huc6)) {
         fau <- fau %>%
@@ -386,61 +401,22 @@ server <- function(input, output, session) {
           dplyr::filter(HUC8_full %in% input$select_huc8)
       }
 
-      fau <- fau %>%
-        dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")"))
+      f_au_ids <- fau %>%
+        dplyr::pull(AU_ID) %>%
+        unique()
+
     }
 
     # Filter tmdl_au_gnis based on inputs = fau_gnis
     {
-      fau_gnis <- tmdl_au_gnis_app
+      fau_gnis <- tmdl_au_gnis_app %>%
+        dplyr::filter(AU_ID %in% f_au_ids)
 
-      if (!is.null(input$select_tmdl_status)) {
+      if (length(select_au_gnis_name_filter) > 0) {
         fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_status %in% input$select_tmdl_status)
-      }
+          dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter)
 
-      if (!is.null(input$select_tmdl_names)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_name %in% input$select_tmdl_names)
       }
-
-      if (!is.null(input$select_tmdl_scope)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_scope %in% input$select_tmdl_scope)
-      }
-
-      if (!is.null(input$select_wql_param)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_wq_limited_parameter %in% input$select_wql_param)
-      }
-
-      if (!is.null(input$select_tmdl_polluntant)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
-      }
-
-      if (!is.null(input$select_au)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(AU_ID %in% input$select_au)
-      }
-
-      if (!is.null(input$select_gnis_name)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(AU_GNIS %in% f_au_gnis)
-      }
-
-      if (!is.null(input$select_huc6)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(HUC6_full %in% input$select_huc6)
-      }
-
-      if (!is.null(input$select_huc8)) {
-        fau_gnis <- fau_gnis %>%
-          dplyr::filter(HUC8_full %in% input$select_huc8)
-      }
-
-      fau_gnis <- fau_gnis %>%
-        dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")"))
 
     }
 
@@ -461,7 +437,7 @@ server <- function(input, output, session) {
                  TMDL_Scope = paste(collapse = "; ", input$select_tmdl_scope),
                  Parameter_303d = paste(collapse =  "; ", input$select_wql_param),
                  TMDL_Pollutant = paste(collapse =  "; ", input$select_tmdl_polluntant),
-                 GNIS_Name = paste(collapse =  "; ", input$select_gnis_name),
+                 AU_Name = paste(collapse =  "; ", input$select_au_name),
                  AU = paste(collapse =  "; ", input$select_au),
                  Basin = paste(collapse =  "; ", input$select_huc6),
                  Subbasin = paste(collapse =  "; ", input$select_huc8))
@@ -615,14 +591,20 @@ server <- function(input, output, session) {
 
     target_data <- shiny::reactive({
 
-      fr %>%
+      pollus_geo_ids <- fr %>%
         dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
+        dplyr::distinct()
+
+      pollus_no_geo_ids <- fau %>%
+        dplyr::mutate(geo_id = NA_character_) %>%
         dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
         dplyr::distinct() %>%
-        dplyr::group_by(TMDL_pollutant) %>%
-        dplyr::mutate(n = dplyr::n()) %>%
-        dplyr::ungroup() %>%
-        dplyr::filter(!(is.na(geo_id) & n > 1)) %>%
+        dplyr::anti_join(pollus_geo_ids, by = c("action_id", "TMDL_pollutant", "TMDL_name"))
+
+      fr %>%
+        dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
+        dplyr::distinct() %>%
+        dplyr::bind_rows(pollus_no_geo_ids) %>%
         dplyr::left_join(tmdl_targets_app, by = c("action_id", "TMDL_pollutant", "geo_id")) %>%
         dplyr::mutate(Location = dplyr::case_when(is.na(geo_description) ~ "See TMDL",
                                                   TRUE ~ geo_description),
