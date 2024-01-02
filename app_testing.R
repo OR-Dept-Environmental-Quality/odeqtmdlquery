@@ -3,12 +3,11 @@ library(dplyr)
 library(odeqtmdl)
 library(reactable)
 library(htmltools)
-library(vroom)
 
 getOption("openxlsx.dateFormat", "mm/dd/yyyy")
 options(dplyr.summarise.inform = FALSE)
 
-odeqtmdl_version <- "0.7.0"
+odeqtmdl_version <- "0.8.4"
 
 # Load data --------------------------------------------------------------------
 
@@ -17,62 +16,32 @@ load(file = file.path("data", "tmdl_targets_app.rda"))
 load(file = file.path("data", "tmdl_parameters_app.rda"))
 load(file = file.path("data", "tmdl_au_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_app.rda"))
-#tmdl_reaches_app <- readRDS(file = file.path("inst", "extdata", "tmdl_reaches_app.RDS"))
-
-tmdl_reaches_app <- vroom::vroom(file = file.path("inst", "extdata", "tmdl_reaches_app_vroom.csv"),
-                                 col_names = TRUE,
-                                 col_types = vroom::cols(
-                                   action_id = vroom::col_character(),
-                                   TMDL_wq_limited_parameter = vroom::col_character(),
-                                   TMDL_pollutant = vroom::col_character(),
-                                   TMDL_scope = vroom::col_character(),
-                                   Period = vroom::col_character(),
-                                   #Source = vroom::col_character(),
-                                   #Pollu_ID = vroom::col_number(),
-                                   geo_id = vroom::col_character(),
-                                   #HUC_6 = vroom::col_character(),
-                                   #HU_6_NAME = vroom::col_character(),
-                                   HUC6_full = vroom::col_character(),
-                                   #HUC_8 = vroom::col_character(),
-                                   #HU_8_NAME = vroom::col_character(),
-                                   HUC8_full = vroom::col_character(),
-                                   #HUC_10 = vroom::col_character(),
-                                   #HU_10_NAME = vroom::col_character(),
-                                   #HUC10_full = vroom::col_character(),
-                                   #Permanent_Identifier = vroom::col_character(),
-                                   #ReachCode = vroom::col_number(),
-                                   #GNIS_Name = vroom::col_character(),
-                                   #GNIS_ID = vroom::col_character(),
-                                   AU_ID = vroom::col_character(),
-                                   #AU_Name = vroom::col_character(),
-                                   #AU_Description = vroom::col_character(),
-                                   AU_GNIS_Name = vroom::col_character(),
-                                   #AU_GNIS = vroom::col_character(),
-                                   LengthKM = vroom::col_double(),
-                                   TMDL_name = vroom::col_character(),
-                                   citation_abbreviated = vroom::col_character(),
-                                   TMDL_status = vroom::col_character(),
-                                   .delim = "\t"))
-
+load(file = file.path("data", "tmdl_au_gnis_LU.rda"))
+load(file = file.path("data", "tmdl_geo_id_app.rda"))
 
 tmdl_names <- c(sort(unique(tmdl_au_app$TMDL_name)))
 tmdl_statuses <- c("Active", "Not Active", "In Development")
 tmdl_scopes <- c("TMDL", "Allocation only", "Advisory allocation")
-tmdl_huc6 <- c(sort(unique(tmdl_reaches_app$HUC6_full)))
-tmdl_huc8 <- c(sort(unique(tmdl_reaches_app$HUC8_full)))
-tmdl_parameters <- c(sort(unique(tmdl_reaches_app$TMDL_wq_limited_parameter)))
-tmdl_pollutants <- c(sort(unique(tmdl_reaches_app$TMDL_pollutant)))
+tmdl_huc6 <- c(sort(unique(tmdl_au_app$HUC6_full)))
+tmdl_huc8 <- c(sort(unique(tmdl_au_app$HUC8_full)))
+tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_wq_limited_parameter)))
+tmdl_pollutants <- c(sort(unique(tmdl_au_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
-tmdl_au_gnis_names <- c(sort(unique(tmdl_reaches_app$AU_GNIS_Name)))
+
+tmdl_au_names <- unique(tmdl_au_app$AU_Name)
+tmdl_au_gnis_names <- unique(tmdl_au_gnis_app$AU_GNIS_Name)
+
+tmdl_au_names_all <- sort(unique(c(tmdl_au_names,
+                                   tmdl_au_gnis_names)))
 
 #- Query -----------------------------------------------------------------------
 
 select_tmdl_status <- "Active"
 select_tmdl_scope <- NULL
-select_tmdl_names <- c("Tenmile Lakes Watershed Total Maximum Daily Load (TMDL)")
+select_tmdl_names <- NULL #c("Tenmile Lakes Watershed Total Maximum Daily Load (TMDL)")
 select_wql_param <- NULL
 select_tmdl_polluntant <- NULL
-select_au_gnis_name <- NULL
+select_au_name <- c("Reeder Reservoir")
 select_au <- NULL
 select_huc6 <- NULL
 select_huc8 <- NULL
@@ -82,16 +51,32 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
                     select_tmdl_names = I(list(select_tmdl_names)),
                     select_wql_param = I(list(select_wql_param)),
                     select_tmdl_polluntant = I(list(select_tmdl_polluntant)),
-                    select_au_gnis_name = I(list(select_au_gnis_name)),
+                    select_au_name = I(list(select_au_name)),
                     select_au = I(list(select_au)),
                     select_huc6 = I(list(select_huc6)),
                     select_huc8 = I(list(select_huc8)))
 
 #- App ------------------------------------------------------------------------
 
-# Filter tmdl_reaches based on inputs = fr
+# Get names from the right field
+select_au_name_filter <- tmdl_au_names[tmdl_au_names %in% select_au_name]
+select_au_gnis_name_filter <- tmdl_au_gnis_names[tmdl_au_gnis_names %in% select_au_name]
+
+if (length(select_au_gnis_name_filter) > 0) {
+
+  select_au_name_filter2 <- tmdl_au_gnis_LU %>%
+    dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter) %>%
+    dplyr::pull(AU_Name) %>%
+    unique()
+
+  select_au_name_filter <- unique(c(select_au_name_filter, select_au_name_filter2))
+
+}
+
+
+# Filter to geo_ids based on inputs = fr
 {
-  fr <- tmdl_reaches_app
+  fr <- tmdl_geo_id_app
 
   if (!is.null(select_tmdl_status)) {
 
@@ -119,9 +104,14 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
       dplyr::filter(TMDL_pollutant %in% select_tmdl_polluntant)
   }
 
-  if (!is.null(select_au_gnis_name)) {
+  if (length(select_au_name_filter) > 0) {
     fr <- fr %>%
-      dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name)
+      dplyr::filter(AU_Name %in% select_au_name_filter)
+  }
+
+  if (length(select_au_gnis_name_filter) > 0) {
+    fr <- fr %>%
+      dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter)
   }
 
   if (!is.null(select_au)) {
@@ -137,12 +127,6 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
   if (!is.null(select_huc8)) {
     fr <- fr %>%
       dplyr::filter(HUC8_full %in% select_huc8)
-  }
-
-  if (!is.null(select_au_gnis_name)) {
-    f_gnis_au_ids <- fr %>%
-      dplyr::pull(AU_ID) %>%
-      unique()
   }
 
   fr <- fr %>%
@@ -184,9 +168,14 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
       dplyr::filter(AU_ID %in% select_au)
   }
 
-  if (!is.null(select_au_gnis_name)) {
+  if (!is.null(select_au)) {
     fau <- fau %>%
-      dplyr::filter(AU_ID %in% f_gnis_au_ids)
+      dplyr::filter(AU_ID %in% unique(c(select_au, f_au_ids)))
+  }
+
+  if (length(select_au_name_filter) > 0) {
+    fau <- fau %>%
+      dplyr::filter(AU_Name %in% select_au_name_filter)
   }
 
   if (!is.null(select_huc6)) {
@@ -198,6 +187,10 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
     fau <- fau %>%
       dplyr::filter(HUC8_full %in% select_huc8)
   }
+
+  f_au_ids <- fau %>%
+    dplyr::pull(AU_ID) %>%
+    unique()
 
   fau <- fau %>%
     dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")"))
@@ -205,51 +198,53 @@ input <- data.frame(select_tmdl_status = I(list(select_tmdl_status)),
 
 # Filter tmdl_au_gnis based on inputs = fau_gnis
 {
-  fau_gnis <- tmdl_au_gnis_app
+  fau_gnis <- tmdl_au_gnis_app %>%
+    dplyr::filter(AU_ID %in% f_au_ids)
 
-  if (!is.null(select_tmdl_status)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(TMDL_status %in% select_tmdl_status)
-  }
+  # if (!is.null(select_tmdl_status)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(TMDL_status %in% select_tmdl_status)
+  # }
+  #
+  # if (!is.null(select_tmdl_names)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(TMDL_name %in% select_tmdl_names)
+  # }
+  #
+  # if (!is.null(select_tmdl_scope)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(TMDL_scope %in% select_tmdl_scope)
+  # }
+  #
+  # if (!is.null(select_wql_param)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(TMDL_wq_limited_parameter %in% select_wql_param)
+  # }
+  #
+  # if (!is.null(select_tmdl_polluntant)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(TMDL_pollutant %in% select_tmdl_polluntant)
+  # }
+  #
+  # if (!is.null(select_au)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(AU_ID %in% select_au)
+  # }
+  #
+  # if (!is.null(select_huc6)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(HUC6_full %in% select_huc6)
+  # }
+  #
+  # if (!is.null(select_huc8)) {
+  #   fau_gnis <- fau_gnis %>%
+  #     dplyr::filter(HUC8_full %in% select_huc8)
+  # }
 
-  if (!is.null(select_tmdl_names)) {
+  if (length(select_au_gnis_name_filter) > 0) {
     fau_gnis <- fau_gnis %>%
-      dplyr::filter(TMDL_name %in% select_tmdl_names)
-  }
+      dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter)
 
-  if (!is.null(select_tmdl_scope)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(TMDL_scope %in% select_tmdl_scope)
-  }
-
-  if (!is.null(select_wql_param)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(TMDL_wq_limited_parameter %in% select_wql_param)
-  }
-
-  if (!is.null(select_tmdl_polluntant)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(TMDL_pollutant %in% select_tmdl_polluntant)
-  }
-
-  if (!is.null(select_au)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(AU_ID %in% select_au)
-  }
-
-  if (!is.null(select_au_gnis_name)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name)
-  }
-
-  if (!is.null(select_huc6)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(HUC6_full %in% select_huc6)
-  }
-
-  if (!is.null(select_huc8)) {
-    fau_gnis <- fau_gnis %>%
-      dplyr::filter(HUC8_full %in% select_huc8)
   }
 
   fau_gnis <- fau_gnis %>%
@@ -269,7 +264,7 @@ query_table <- data.frame(Query_Date = Sys.time(),
                           TMDL_Scope = paste(collapse = "; ", select_tmdl_scope),
                           Parameter_303d = paste(collapse =  "; ", select_wql_param),
                           TMDL_Pollutant = paste(collapse =  "; ", select_tmdl_polluntant),
-                          AU_GNIS_Name = paste(collapse =  "; ", select_au_gnis_name),
+                          AU_Name = paste(collapse =  "; ", select_au_name),
                           AU = paste(collapse =  "; ", select_au),
                           Basin = paste(collapse =  "; ", select_huc6),
                           Subbasin = paste(collapse =  "; ", select_huc8))
@@ -405,21 +400,20 @@ reactable::reactable(action_data,
 
 #- Target Table -----------------------------------------------------------
 
-geo_id_select <- fr %>%
+pollus_geo_ids <- fr %>%
+  dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
+  dplyr::distinct()
+
+pollus_no_geo_ids <- fau %>%
+  dplyr::mutate(geo_id = NA_character_) %>%
   dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
   dplyr::distinct() %>%
-  dplyr::group_by(TMDL_pollutant) %>%
-  dplyr::mutate(n = dplyr::n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(!(is.na(geo_id) & n > 1))
+  dplyr::anti_join(pollus_geo_ids, by = c("action_id", "TMDL_pollutant", "TMDL_name"))
 
 target_data <- fr %>%
   dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
   dplyr::distinct() %>%
-  dplyr::group_by(TMDL_pollutant) %>%
-  dplyr::mutate(n = dplyr::n()) %>%
-  dplyr::ungroup() %>%
-  dplyr::filter(!(is.na(geo_id) & n > 1)) %>%
+  dplyr::bind_rows(pollus_no_geo_ids) %>%
   dplyr::left_join(tmdl_targets_app, by = c("action_id", "TMDL_pollutant", "geo_id")) %>%
   dplyr::mutate(Location = dplyr::case_when(is.na(geo_description) ~ "See TMDL",
                                             TRUE ~ geo_description),
@@ -428,13 +422,17 @@ target_data <- fr %>%
                                                  field_parameter),
                 target = dplyr::case_when(is.na(target_value) ~ "See TMDL",
                                           target_type == "percent reduction" ~ paste(target_value, target_units, "reduction"),
+                                          is.na(target_units) ~ target_value,
                                           TRUE ~ paste(target_value, target_units)),
                 tmdl_period = dplyr::case_when(is.na(season_start) | is.na(season_end) ~ "See TMDL",
                                                TRUE ~ paste(season_start,"-", season_end))) %>%
-  dplyr::select(Location,
+  dplyr::select("Field Parameter" = field_parameter,
+                Location,
                 "Location Geo ID" = geo_id,
-                "Field Parameter" = field_parameter,
                 "TMDL Target" = target,
+                "Target Value" = target_value,
+                "Target Units" = target_units,
+                "Target Type" = target_type,
                 "Statistical Base" = stat_base,
                 "Conditionals" = target_conditionals,
                 "Target Period" = tmdl_period,
@@ -442,7 +440,7 @@ target_data <- fr %>%
                 "TMDL Reference" = target_reference,
                 "TMDL" = TMDL_name) %>%
   dplyr::distinct() %>%
-  dplyr::arrange(Location, "TMDL Pollutant")
+  dplyr::arrange("Field Parameter", Location)
 
 # target_data <- fr %>%
 #     dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
