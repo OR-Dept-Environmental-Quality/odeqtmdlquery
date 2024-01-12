@@ -40,7 +40,7 @@ save(tmdl_geo_id_app, file = file.path("data", "tmdl_geo_id_app.rda"))
 
 tmdl_targets_app <- odeqtmdl::tmdl_geo_ids %>%
   dplyr::left_join(odeqtmdl::tmdl_targets, by = c("action_id", "geo_id")) %>%
-  tidyr::unite("stat_base", target_time_base:target_stat_base, sep = " ", na.rm = TRUE)
+  tidyr::unite("stat_base", tidyr::matches(c("target_time_base", "target_stat_base")), sep = " ", na.rm = TRUE)
 
 save(tmdl_targets_app, file = file.path("data", "tmdl_targets_app.rda"))
 
