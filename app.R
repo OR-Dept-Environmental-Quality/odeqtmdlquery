@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(shinyalert)
 library(dplyr)
 library(openxlsx)
 library(htmltools)
@@ -8,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.1"
+odeqtmdl_version <- "0.9.3"
 
 # Load data --------------------------------------------------------------------
 
@@ -19,6 +20,7 @@ load(file = file.path("data", "tmdl_au_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_app.rda"))
 load(file = file.path("data", "tmdl_au_gnis_LU.rda"))
 load(file = file.path("data", "tmdl_geo_id_app.rda"))
+load(file = file.path("data", "tmdl_wla_app.rda"))
 
 tmdl_names <- c(sort(unique(tmdl_au_app$TMDL_name)))
 tmdl_statuses <- c("Active", "Not Active", "In Development")
@@ -29,6 +31,8 @@ tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_wq_limited_parameter)))
 tmdl_pollutants <- c(sort(unique(tmdl_au_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
 
+npdes_epan  <- c(sort(unique(tmdl_wla_app$EPANum)))
+npdes_wqfn  <- c(sort(unique(tmdl_wla_app$WQFileNum)))
 
 tmdl_au_names <- unique(tmdl_au_app$AU_Name)
 tmdl_au_gnis_names <- unique(tmdl_au_gnis_app$AU_GNIS_Name)
@@ -46,6 +50,8 @@ tmdl_au_names_all <- sort(unique(c(tmdl_au_names,
 
 # txt_help <- htmltools::HTML(paste(str1,str2,str3,str4,str5,str6, sep = '<tb/>'))
 
+# text_popup <- "The TMDL Query Tool provides a way to explore and access information about TMDLs in Oregon and where they apply. Some of the TMDL information provided by this tool is still under review and may not be accurate or be fully comprehensive. See each relevant TMDL document for the official record. TMDLs developed by tribal governments are not included.
+
 txt_actions <- "The following TMDLs match your query."
 
 txt_targets <- "The following pollutant targets are included in the TMDLs matching your query. Not all TMDL targets or requirments are listed. See the TMDL document for more information."
@@ -53,6 +59,8 @@ txt_targets <- "The following pollutant targets are included in the TMDLs matchi
 txt_au <- "The following DEQ Assessment Units are included in the TMDLs matching your query."
 
 txt_au_gnis <- "The following DEQ GNIS Assessment Units are included in the TMDLs matching your query."
+
+txt_wla <- "The following NPDES point sources received waste load allocations in the TMDLs matching your query. Not all point sources may be listed. See the TMDL document for more information."
 
 txt_i_status <- paste0("TMDL status for an individual parameter or pollutant.","\n\n",
                        "Active: TMDL is complete, approved by EPA, and active.","\n\n",
@@ -64,6 +72,7 @@ txt_i_scope <- paste0("Provides information about how the TMDL applies.","\n\n",
                       "Allocation only: Identifies reaches where a TMDL allocation applies but the TMDL does not address a category 5 303(d) listing or future listing in that reach. Typically this situation is applicable for tributaries or canals that are upstream of the reach where the TMDL applies. The pollutant reduction in the upstream reach is needed to achieve the TMDL loading capacity of the downstream reach.","\n\n",
 
                       "Advisory allocation: Identifies reaches where a TMDL allocation may apply based on assessment of source loads and if pollutant reduction is needed to achieve a TMDL allocation or loading capacity downstream. See TMDL document for details and requirements. The TMDL does not address a 303(d) listing or future listing in this reach.")
+
 
 
 # Shiny UI ---------------------------------------------------------------------
@@ -241,6 +250,12 @@ ui <- shinydashboard::dashboardPage(
                       br(),
                       shiny::textOutput(outputId = "text_au_gnis"),
                       reactable::reactableOutput(outputId = "tmdl_au_gnis_result",
+                                                 width = "100%")),
+      shiny::tabPanel(title = "Point Source WLAs",
+                      value = "tmdl_wla_tab",
+                      br(),
+                      shiny::textOutput(outputId = "text_wla"),
+                      reactable::reactableOutput(outputId = "tmdl_wla_result",
                                                  width = "100%"))
     )
   )
@@ -270,6 +285,7 @@ server <- function(input, output, session) {
 
     output$text_actions <- shiny::renderText({character(0)})
     output$text_targets <- shiny::renderText({character(0)})
+    output$text_wla <- shiny::renderText({character(0)})
 
     session$reload()
 
@@ -420,11 +436,34 @@ server <- function(input, output, session) {
 
     }
 
+    # Filter tmdl_wla by AU and pollutant
+    {
+      fwla <- tmdl_wla_app %>%
+        dplyr::filter(AU_ID %in% f_au_ids)
+
+      if (!is.null(input$select_tmdl_polluntant)) {
+        fwla <- fwla %>%
+          dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
+      }
+
+      if (!is.null(input$select_tmdl_status)) {
+        fwla <- fwla %>%
+          dplyr::filter(TMDL_status %in% input$select_tmdl_status)
+      }
+
+      if (!is.null(input$select_tmdl_names)) {
+        fwla <- fwla %>%
+          dplyr::filter(TMDL_name %in% input$select_tmdl_names)
+      }
+
+    }
+
     # Text updates
     output$text_actions <- shiny::renderText({txt_actions})
     output$text_targets <- shiny::renderText({txt_targets})
     output$text_au <- shiny::renderText({txt_au})
     output$text_au_gnis <- shiny::renderText({txt_au_gnis})
+    output$text_wla <- shiny::renderText({txt_wla})
 
     # Query table reactive -----------------------------------------------------
     query_table <- shiny::reactive({
@@ -525,7 +564,7 @@ server <- function(input, output, session) {
       reactable::reactable(action_data(),
                            columns = list(
                              "TMDL" = reactable::colDef(minWidth = 325,
-                                                        maxWidth = 650,
+                                                        maxWidth = 325,
                                                         headerVAlign = "center",
                                                         cell = function(value, index) {
                                                           if (is.na(action_data()[index, "URL"])) {
@@ -535,21 +574,21 @@ server <- function(input, output, session) {
                                                             htmltools::tags$a(href = action_data()[index, "URL"], target = "_blank", as.character(value))
                                                           }
                                                         }),
-                             "TMDL Completion Date" = reactable::colDef(maxWidth = 110,
+                             "TMDL Completion Date" = reactable::colDef(maxWidth = 85,
                                                                         align = "center", headerVAlign = "center",
                                                                         format = reactable::colFormat(date = TRUE)),
-                             "EPA Approval Date" = reactable::colDef(maxWidth = 110,
+                             "EPA Approval Date" = reactable::colDef(maxWidth = 85,
                                                                      align = "center", headerVAlign = "center",
                                                                      format = reactable::colFormat(date = TRUE)),
-                             "EPA Action ID" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center",
+                             "EPA Action ID" = reactable::colDef(minWidth = 125, maxWidth = 170, headerVAlign = "center",
                                                                  align = "right"),
                              "TMDL Status" = reactable::colDef(maxWidth = 110,
                                                                align = "center", headerVAlign = "center"),
                              "TMDL Status Comment" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "303(d) Parameters Addressed" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
                              "TMDL Pollutants" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
-                             "Count of Assessment Units Based on Query" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
-                             "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(minWidth = 100, maxWidth = 175, headerVAlign = "center"),
+                             "Count of Assessment Units Based on Query" = reactable::colDef(maxWidth = 85, headerVAlign = "center"),
+                             "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(maxWidth = 85, headerVAlign = "center"),
                              "URL" = reactable::colDef(show = FALSE)),
                            sortable = TRUE,
                            showSortIcon = TRUE,
@@ -629,7 +668,8 @@ server <- function(input, output, session) {
                       "Target Period" = tmdl_period,
                       "TMDL Element" = TMDL_element,
                       "TMDL Reference" = target_reference,
-                      "TMDL" = TMDL_name) %>%
+                      "TMDL" = TMDL_name,
+                      "EPA Action ID" = action_id) %>%
         dplyr::distinct() %>%
         dplyr::arrange("Field Parameter", Location)
 
@@ -652,7 +692,9 @@ server <- function(input, output, session) {
                              "Target Period" = reactable::colDef(headerVAlign = "center"),
                              "TMDL Element" = reactable::colDef(headerVAlign = "center"),
                              "TMDL Reference" = reactable::colDef(headerVAlign = "center"),
-                             "TMDL" = reactable::colDef(headerVAlign = "center")),
+                             "TMDL" = reactable::colDef(headerVAlign = "center"),
+                             "EPA Action ID" = reactable::colDef(minWidth = 125, maxWidth = 170,
+                                                                 align = "right", headerVAlign = "center")),
                            sortable = TRUE,
                            showSortIcon = TRUE,
                            searchable = TRUE,
@@ -744,6 +786,41 @@ server <- function(input, output, session) {
                            bordered = TRUE)
     })
 
+    #- WLA table Reactive -------------------------------------------------------
+    wla_data <- shiny::reactive({
+
+      fwla %>%
+        dplyr::arrange(facility_name, TMDL_pollutant, AU_ID, TMDL_name) %>%
+        dplyr::select("Facility Name" = facility_name,
+                      "EPA Number" = EPANum,
+                      "File Number" = WQFileNum,
+                      "Assessment Unit ID" = AU_ID,
+                      "TMDL Pollutant" = TMDL_pollutant,
+                      "TMDL" = TMDL_name,
+                      "EPA Action ID" = action_id)
+
+    })
+
+    #- WLA table Render ---------------------------------------------------------
+    output$tmdl_wla_result <- reactable::renderReactable({
+
+      reactable::reactable(data = shiny::isolate(wla_data()),
+                           columns = list(
+                             "Facility Name" = reactable::colDef(width = 350, align = "left", headerVAlign = "center"),
+                             "EPA Number" = reactable::colDef(width = 80, align = "right", headerVAlign = "center"),
+                             "File Number" = reactable::colDef(width = 70, align = "right", headerVAlign = "center"),
+                             "Assessment Unit ID" = reactable::colDef(width = 250, headerVAlign = "center"),
+                             "TMDL Pollutant" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center"),
+                             "TMDL" = reactable::colDef(minWidth = 325, maxWidth = 325, headerVAlign = "center"),
+                             "EPA Action ID" = reactable::colDef(minWidth = 125, maxWidth = 170,
+                                                                 align = "right", headerVAlign = "center")),
+                           sortable = TRUE,
+                           showSortIcon = TRUE,
+                           searchable = TRUE,
+                           compact = TRUE,
+                           bordered = TRUE)
+    })
+
     #- Download ---------------------------------------------------
     output$download_query_results <- shiny::downloadHandler(
       filename = paste0("TMDL_query_result_", Sys.Date(),".xlsx"),
@@ -754,14 +831,15 @@ server <- function(input, output, session) {
                                   TMDL_Pollutant_Targets = shiny::isolate(target_data()),
                                   Assessment_Units = shiny::isolate(au_data()),
                                   GNIS_Assessment_Units = shiny::isolate(au_gnis_data()),
+                                  Point_Sources = shiny::isolate(wla_data()),
                                   Query = shiny::isolate(query_table())),
                              file = file,
                              colWidths = "auto",
-                             firstActiveRow = c(2,2,2,2,2),
-                             firstRow = c(TRUE,TRUE,TRUE,TRUE,TRUE),
-                             rowNames = c(FALSE, FALSE, FALSE, FALSE,FALSE),
+                             firstActiveRow = c(2,2,2,2,2,2),
+                             firstRow = c(TRUE, TRUE, TRUE, TRUE, TRUE, TRUE),
+                             rowNames = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE),
                              borders = "rows",
-                             startCol = c(1,1,1,1), startRow = c(1,1,1,1,1),
+                             startCol = c(1), startRow = c(1),
                              headerStyle = openxlsx::createStyle(fgFill = "#000000",
                                                                  halign = "LEFT",
                                                                  textDecoration = "Bold",
