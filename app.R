@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.3"
+odeqtmdl_version <- "0.9.4"
 
 # Load data --------------------------------------------------------------------
 
@@ -470,16 +470,18 @@ server <- function(input, output, session) {
 
       data.frame(Query_Date = Sys.time(),
                  Session = session$token,
-                 R_package_version = odeqtmdl_version,
-                 TMDL_Name = paste(collapse =  "; ", input$select_tmdl_names),
-                 TMDL_Status = paste(collapse = "; ", input$select_tmdl_status),
-                 TMDL_Scope = paste(collapse = "; ", input$select_tmdl_scope),
-                 Parameter_303d = paste(collapse =  "; ", input$select_wql_param),
-                 TMDL_Pollutant = paste(collapse =  "; ", input$select_tmdl_polluntant),
-                 AU_Name = paste(collapse =  "; ", input$select_au_name),
+                 'R package version' = odeqtmdl_version,
+                 'TMDL Name' = paste(collapse =  "; ", input$select_tmdl_names),
+                 'TMDL Status' = paste(collapse = "; ", input$select_tmdl_status),
+                 'TMDL Scope' = paste(collapse = "; ", input$select_tmdl_scope),
+                 'Parameter 303d' = paste(collapse =  "; ", input$select_wql_param),
+                 'TMDL Pollutant' = paste(collapse =  "; ", input$select_tmdl_polluntant),
+                 'AU Name' = paste(collapse =  "; ", input$select_au_name),
                  AU = paste(collapse =  "; ", input$select_au),
                  Basin = paste(collapse =  "; ", input$select_huc6),
-                 Subbasin = paste(collapse =  "; ", input$select_huc8))
+                 Subbasin = paste(collapse =  "; ", input$select_huc8),
+                 check.names = FALSE,
+                 stringsAsFactors = FALSE)
     })
 
     #- Action ID query Reactive ------------------------------------------------
