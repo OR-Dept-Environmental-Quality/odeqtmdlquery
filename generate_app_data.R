@@ -75,6 +75,7 @@ save(tmdl_au_gnis_LU, file = file.path("data", "tmdl_au_gnis_LU.rda"))
 
 # AU counts --------------------------------------------------------------------
 
+# Number of TMDLs
 AU_count_param <- tmdl_au_app %>%
   dplyr::filter(TMDL_scope == "TMDL" & TMDL_status == "Active") %>%
   dplyr::select(action_id, TMDL_wq_limited_parameter, AU_ID) %>%
@@ -82,10 +83,12 @@ AU_count_param <- tmdl_au_app %>%
   dplyr::group_by(action_id, TMDL_wq_limited_parameter) %>%
   dplyr::summarise(AU_count_total = dplyr::n())
 
+# Number of TMDL actions
 AU_count_actions1 <- AU_count_param %>%
   dplyr::group_by(action_id) %>%
   dplyr::summarise(AU_count_total = sum(AU_count_total))
 
+# Number of TMDLs by action
 AU_count_actions <- tmdl_au_app %>%
   dplyr::group_by(action_id) %>%
   dplyr::summarise(TMDL_wq_limited_parameter =
