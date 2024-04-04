@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.4"
+odeqtmdl_version <- "0.9.6"
 
 # Load data --------------------------------------------------------------------
 
@@ -30,9 +30,6 @@ tmdl_huc8 <- c(sort(unique(tmdl_au_app$HUC8_full)))
 tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_wq_limited_parameter)))
 tmdl_pollutants <- c(sort(unique(tmdl_au_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
-
-npdes_epan  <- c(sort(unique(tmdl_wla_app$EPANum)))
-npdes_wqfn  <- c(sort(unique(tmdl_wla_app$WQFileNum)))
 
 tmdl_au_names <- unique(tmdl_au_app$AU_Name)
 tmdl_au_gnis_names <- unique(tmdl_au_gnis_app$AU_GNIS_Name)
@@ -154,8 +151,7 @@ ui <- shinydashboard::dashboardPage(
                                           multiple = TRUE,
                                           options = list(plugins = list("remove_button")),
                                           width = "100%")),
-      shiny::column(width = 3
-                    ,
+      shiny::column(width = 3,
                     shiny::selectizeInput(inputId = "select_tmdl_polluntant",
                                           label = tags$span("TMDL pollutant",
                                                             tags$p(
@@ -166,7 +162,8 @@ ui <- shinydashboard::dashboardPage(
                                           selected = character(0),
                                           multiple = TRUE,
                                           options = list(plugins = list("remove_button")),
-                                          width = "100%"))),
+                                          width = "100%")),
+    ),
     shiny::fluidRow(
       shiny::column(width = 3,
                     shiny::selectizeInput(inputId = "select_huc6",
@@ -309,8 +306,7 @@ server <- function(input, output, session) {
 
     }
 
-
-    # Filter to geo_ids based on inputs = fr
+    # Filter geo_ids based on inputs = fr
     {
       fr <- tmdl_geo_id_app
 
@@ -421,12 +417,45 @@ server <- function(input, output, session) {
         dplyr::pull(AU_ID) %>%
         unique()
 
+      f_pollutants <- fau %>%
+        dplyr::pull(TMDL_pollutant) %>%
+        unique()
+
+      f_action_ids <- fau %>%
+        dplyr::pull(action_id) %>%
+        unique()
+
     }
 
     # Filter tmdl_au_gnis based on inputs = fau_gnis
     {
       fau_gnis <- tmdl_au_gnis_app %>%
         dplyr::filter(AU_ID %in% f_au_ids)
+
+      if (!is.null(input$select_tmdl_status)) {
+        fau_gnis <- fau_gnis %>%
+          dplyr::filter(TMDL_status %in% input$select_tmdl_status)
+      }
+
+      if (!is.null(input$select_tmdl_names)) {
+        fau_gnis <- fau_gnis %>%
+          dplyr::filter(TMDL_name %in% input$select_tmdl_names)
+      }
+
+      if (!is.null(input$select_tmdl_scope)) {
+        fau_gnis <- fau_gnis %>%
+          dplyr::filter(TMDL_scope %in% input$select_tmdl_scope)
+      }
+
+      if (!is.null(input$select_wql_param)) {
+        fau_gnis <- fau_gnis %>%
+          dplyr::filter(TMDL_wq_limited_parameter %in% input$select_wql_param)
+      }
+
+      if (!is.null(input$select_tmdl_polluntant)) {
+        fau_gnis <- fau_gnis %>%
+          dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
+      }
 
       if (length(select_au_gnis_name_filter) > 0) {
         fau_gnis <- fau_gnis %>%
@@ -439,12 +468,13 @@ server <- function(input, output, session) {
     # Filter tmdl_wla by AU and pollutant
     {
       fwla <- tmdl_wla_app %>%
-        dplyr::filter(AU_ID %in% f_au_ids)
+        dplyr::filter(AU_ID %in% c(f_au_ids, NA_character_))
 
-      if (!is.null(input$select_tmdl_polluntant)) {
-        fwla <- fwla %>%
-          dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
-      }
+      fwla <- tmdl_wla_app %>%
+        dplyr::filter(action_id %in% f_action_ids)
+
+      fwla <- fwla %>%
+        dplyr::filter(TMDL_pollutant %in% f_pollutants)
 
       if (!is.null(input$select_tmdl_status)) {
         fwla <- fwla %>%
@@ -618,8 +648,8 @@ server <- function(input, output, session) {
                                                                                                                                   maxWidth = 175,
                                                                                                                                   headerVAlign = "center"),
                                                                    "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(minWidth = 100,
-                                                                                                                                           maxWidth = 175,
-                                                                                                                                           headerVAlign = "center")),
+                                                                                                                                                  maxWidth = 175,
+                                                                                                                                                  headerVAlign = "center")),
                                                                  outlined = TRUE,
                                                                  bordered = TRUE,
                                                                  fullWidth = FALSE))},
@@ -809,8 +839,8 @@ server <- function(input, output, session) {
       reactable::reactable(data = shiny::isolate(wla_data()),
                            columns = list(
                              "Facility Name" = reactable::colDef(width = 350, align = "left", headerVAlign = "center"),
-                             "EPA Number" = reactable::colDef(width = 80, align = "right", headerVAlign = "center"),
-                             "File Number" = reactable::colDef(width = 70, align = "right", headerVAlign = "center"),
+                             "EPA Number" = reactable::colDef(width = 90, align = "right", headerVAlign = "center"),
+                             "File Number" = reactable::colDef(width = 90, align = "right", headerVAlign = "center"),
                              "Assessment Unit ID" = reactable::colDef(width = 250, headerVAlign = "center"),
                              "TMDL Pollutant" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center"),
                              "TMDL" = reactable::colDef(minWidth = 325, maxWidth = 325, headerVAlign = "center"),
