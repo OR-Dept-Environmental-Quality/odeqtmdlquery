@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.6"
+odeqtmdl_version <- "0.9.7"
 
 # Load data --------------------------------------------------------------------
 
@@ -616,9 +616,9 @@ server <- function(input, output, session) {
                                                                  align = "right"),
                              "TMDL Status" = reactable::colDef(maxWidth = 110,
                                                                align = "center", headerVAlign = "center"),
-                             "TMDL Status Comment" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
-                             "303(d) Parameters Addressed" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
-                             "TMDL Pollutants" = reactable::colDef(minWidth = 250, maxWidth = 550, headerVAlign = "center"),
+                             "TMDL Status Comment" = reactable::colDef(minWidth = 150, maxWidth = 350, headerVAlign = "center"),
+                             "303(d) Parameters Addressed" = reactable::colDef(minWidth = 150, maxWidth = 450, headerVAlign = "center"),
+                             "TMDL Pollutants" = reactable::colDef(minWidth = 150, maxWidth = 450, headerVAlign = "center"),
                              "Count of Assessment Units Based on Query" = reactable::colDef(maxWidth = 85, headerVAlign = "center"),
                              "Total Count of Assessment Units Addressed by TMDL Action" = reactable::colDef(maxWidth = 85, headerVAlign = "center"),
                              "URL" = reactable::colDef(show = FALSE)),
@@ -758,8 +758,8 @@ server <- function(input, output, session) {
                            columns = list(
                              "Assessment Unit GNIS ID" = reactable::colDef(width = 400, headerVAlign = "center"),
                              "Assessment Unit GNIS Name"  = reactable::colDef(width = 275, headerVAlign = "center"),
-                             "303(d) Parameter Addressed" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center"),
-                             "TMDL Pollutant" = reactable::colDef(minWidth = 160, maxWidth = 250, headerVAlign = "center"),
+                             "303(d) Parameter Addressed" = reactable::colDef(minWidth = 150, maxWidth = 150, headerVAlign = "center"),
+                             "TMDL Pollutant" = reactable::colDef(minWidth = 150, maxWidth = 150, headerVAlign = "center"),
                              "TMDL Scope" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
                              "Fish Use Period" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
                              "Percent GNIS Assessment Unit Addressed by TMDL" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
@@ -801,9 +801,9 @@ server <- function(input, output, session) {
                            columns = list(
                              "Assessment Unit ID" = reactable::colDef(width = 250, headerVAlign = "center"),
                              "Assessment Unit Name"  = reactable::colDef(width = 200, headerVAlign = "center"),
-                             "Assessment Unit Description" = reactable::colDef(width = 225, headerVAlign = "center"),
-                             "303(d) Parameter Addressed" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center"),
-                             "TMDL Pollutant" = reactable::colDef(minWidth = 160, maxWidth = 170, headerVAlign = "center"),
+                             "Assessment Unit Description" = reactable::colDef(width = 200, headerVAlign = "center"),
+                             "303(d) Parameter Addressed" = reactable::colDef(minWidth = 150, maxWidth = 150, headerVAlign = "center"),
+                             "TMDL Pollutant" = reactable::colDef(minWidth = 150, maxWidth = 150, headerVAlign = "center"),
                              "TMDL Scope" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
                              "Fish Use Period" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
                              "Percent Assessment Unit Addressed by TMDL" = reactable::colDef(minWidth = 125, maxWidth = 125, headerVAlign = "center"),
