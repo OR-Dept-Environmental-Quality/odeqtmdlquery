@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.7"
+odeqtmdl_version <- "0.9.9"
 
 # Load data --------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ tmdl_au_names_all <- sort(unique(c(tmdl_au_names,
 
 # txt_help <- htmltools::HTML(paste(str1,str2,str3,str4,str5,str6, sep = '<tb/>'))
 
-# text_popup <- "The TMDL Query Tool provides a way to explore and access information about TMDLs in Oregon and where they apply. Some of the TMDL information provided by this tool is still under review and may not be accurate or be fully comprehensive. See each relevant TMDL document for the official record. TMDLs developed by tribal governments are not included.
+txt_popup <- "The TMDL Query Tool provides a way to explore and access information about TMDLs in Oregon and where they apply. While the database includes most TMDL information, it does not represent the official record. The Total Maximum Daily Load and Water Quality Management Plan documents represent the official record should any information in this data set be inaccurate or missing."
 
 txt_actions <- "The following TMDLs match your query."
 
@@ -70,7 +70,9 @@ txt_i_scope <- paste0("Provides information about how the TMDL applies.","\n\n",
 
                       "Advisory allocation: Identifies reaches where a TMDL allocation may apply based on assessment of source loads and if pollutant reduction is needed to achieve a TMDL allocation or loading capacity downstream. See TMDL document for details and requirements. The TMDL does not address a 303(d) listing or future listing in this reach.")
 
-
+txt_footer <- tags$p("The Oregon Department of Environmental Quality does not discriminate on the basis of race, color, national origin, disability, age, sex, religion, sexual orientation, gender identity, or marital status in administration of its programs or activities. DEQ does not intimidate or retaliate against any individual or group because they have exercised their rights to participate in actions protected, or oppose action prohibited, by 40 C.F.R. Parts 5 and 7, or for the purpose of interfering with such rights. For more information visit ",
+                     tags$a(href = "https://www.oregon.gov/deq/about-us/Pages/titleVIaccess.aspx", "Civil Rights, Environmental Justice and Accessibility",
+                            target = "_blank")," web page.")
 
 # Shiny UI ---------------------------------------------------------------------
 ui <- shinydashboard::dashboardPage(
@@ -89,10 +91,15 @@ ui <- shinydashboard::dashboardPage(
                                     class = "dropdown"
                                   )),
   shinydashboard::dashboardSidebar(disable = TRUE),
-
   # Body
   shinydashboard::dashboardBody(
     shiny::includeCSS("www/DEQ_web_style.css"),
+    # Popup
+    shiny::modalDialog(title = "TMDL Query Tool Information",
+                       tags$p(txt_popup),
+                       size = "m",
+                       easyClose = FALSE,
+                       footer = shiny::modalButton("OK")),
     # shiny::fluidRow(align = 'left',
     #          (shinydashboard::box(width = 12,
     #               shiny::htmlOutput("help"),
@@ -133,7 +140,7 @@ ui <- shinydashboard::dashboardPage(
                                                               style = "color:#0072B2;",
                                                               title = txt_i_scope)),
                                           choices = tmdl_scopes,
-                                          selected = character(0),
+                                          selected = "TMDL",
                                           multiple = TRUE,
                                           options = list(plugins = list("remove_button")),
                                           width = "100%"))
@@ -223,7 +230,7 @@ ui <- shinydashboard::dashboardPage(
       shiny::column(width = 2,
                     shiny::uiOutput(outputId = "download_button"))),
     shiny::fluidRow(style = "padding-top:20px"),
-    shiny::tabsetPanel(
+    shiny::tabsetPanel(id = "panels", type = "tabs",
       shiny::tabPanel(title = "TMDL Actions",
                       value = "tmdl_actions_tab",
                       br(),
@@ -253,7 +260,13 @@ ui <- shinydashboard::dashboardPage(
                       br(),
                       shiny::textOutput(outputId = "text_wla"),
                       reactable::reactableOutput(outputId = "tmdl_wla_result",
-                                                 width = "100%"))
+                                                 width = "100%")),
+      shiny::column(width = 1),
+      footer = shiny::fluidRow(
+        tags$footer(class = "footer",
+                    strong("Non-discrimination Statement"),
+                    br(),
+                    txt_footer))
     )
   )
 )
@@ -261,7 +274,6 @@ ui <- shinydashboard::dashboardPage(
 # Shiny Server -----------------------------------------------------------------
 
 server <- function(input, output, session) {
-
 
   shiny::updateSelectizeInput(inputId = "select_au", choices = tmdl_au_ids, selected = character(0), server = TRUE)
   shiny::updateSelectizeInput(inputId = "select_au_name", choices = tmdl_au_names_all, selected = character(0), server = TRUE)
@@ -274,7 +286,7 @@ server <- function(input, output, session) {
 
     shiny::updateSelectInput(inputId = "select_tmdl_names", selected = character(0))
     shiny::updateSelectInput(inputId = "select_tmdl_status", selected = "Active")
-    shiny::updateSelectInput(inputId = "select_tmdl_scope", selected = character(0))
+    shiny::updateSelectInput(inputId = "select_tmdl_scope", selected = "TMDL")
     shiny::updateSelectInput(inputId = "select_wql_param", selected = character(0))
     shiny::updateSelectInput(inputId = "select_tmdl_polluntant", selected = character(0))
     shiny::updateSelectInput(inputId = "select_huc6", selected = character(0))
@@ -470,7 +482,7 @@ server <- function(input, output, session) {
       fwla <- tmdl_wla_app %>%
         dplyr::filter(AU_ID %in% c(f_au_ids, NA_character_))
 
-      fwla <- tmdl_wla_app %>%
+      fwla <- fwla %>%
         dplyr::filter(action_id %in% f_action_ids)
 
       fwla <- fwla %>%
