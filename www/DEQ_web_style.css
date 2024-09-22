@@ -76,6 +76,15 @@
     color: #444;
     font-family: 'Arial';
 }
+
+.footer {
+  background-color: #ECF0F4;
+  position: bottom;
+  padding: 10px;
+  font-size: 15px;
+  width: 95%;
+}
+
 .td{
 
 }
