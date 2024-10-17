@@ -8,9 +8,11 @@
   font-display: swap;
 }
 
+
 .main-header{
   background-color: #1B7866;
   width: auto;
+  min-height: 50px;
 }
 
 .main-header .logo{
@@ -18,8 +20,15 @@
   font-size: 2.5vmin;
   width:auto;
   }
+
+.skin-blue .main-sidebar {
+  background-color: #1B7866;
+  top: 50px;}
+
+
+
 .box-header .box-title{
-  font-family: "Helvetica Neue", san-serif;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 20px;
   }
 
@@ -75,6 +84,10 @@
     font-size: 20px;
     color: #444;
     font-family: 'Arial';
+}
+
+.main-footer {
+  background-color: #ECF0F4;
 }
 
 .footer {
