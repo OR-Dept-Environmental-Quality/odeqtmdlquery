@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.10"
+odeqtmdl_version <- "0.9.11"
 
 # Load data --------------------------------------------------------------------
 
