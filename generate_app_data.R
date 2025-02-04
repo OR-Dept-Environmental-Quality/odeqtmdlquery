@@ -76,7 +76,11 @@ tmdl_au_app <- odeqtmdl::tmdl_au %>%
   dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
   dplyr::left_join(odeqtmdl::tmdl_parameters,
                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
-  dplyr::mutate(URL = paste0("https://www.arcgis.com/apps/webappviewer/index.html?id=d3c176c743c042b7a92f91070ddfaa5c&query=d37ee6195856496a85e09dba11c183a3,AU_ID,",AU_ID))
+  dplyr::mutate(URL = case_when(TMDL_status %in% c("Active", "Not Active") ~
+                                  paste0("https://www.arcgis.com/apps/webappviewer/index.html?id=d3c176c743c042b7a92f91070ddfaa5c&query=d37ee6195856496a85e09dba11c183a3,AU_ID,",AU_ID),
+                                TMDL_status == "In Development" ~
+                                  paste0("https://www.arcgis.com/apps/webappviewer/index.html?id=d3c176c743c042b7a92f91070ddfaa5c&query=1925b43a169-layer-15,AU_ID,",AU_ID),
+                                TRUE ~ NA_character_))
 
 save(tmdl_au_app, file = file.path("data", "tmdl_au_app.rda"))
 
