@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "0.9.11"
+odeqtmdl_version <- "1.0.2"
 
 # Load data --------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ tmdl_years <- seq(lubridate::year(min(tmdl_actions_app$EPA_action_date, na.rm = 
 tmdl_scopes <- c("TMDL", "Allocation only", "Advisory allocation")
 tmdl_huc6 <- c(sort(unique(tmdl_au_app$HUC6_full)))
 tmdl_huc8 <- c(sort(unique(tmdl_au_app$HUC8_full)))
-tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_wq_limited_parameter)))
+tmdl_parameters <- c(sort(unique(tmdl_au_app$TMDL_parameter)))
 tmdl_pollutants <- c(sort(unique(tmdl_au_app$TMDL_pollutant)))
 tmdl_au_ids <- c(sort(unique(tmdl_au_app$AU_ID)))
 
@@ -87,10 +87,12 @@ ui_sidebar <- shinydashboard::dashboardSidebar(disable = TRUE)
 
 #- UI popup --------------------------------------------------------------------
 
-txt_popup <- "The TMDL Query Tool provides a way to explore information about TMDLs in Oregon and where they apply. While the database includes most TMDL information, it does not represent the official record. The Total Maximum Daily Load and Water Quality Management Plan documents represent the official record. DEQ recommends referring to these documents for all regulatory purposes and as necessary for any missing information."
+txt_popup <- tags$p("The TMDL Query Tool provides a way to explore information about TMDLs in Oregon and where they apply. While the database includes most TMDL information, it does not represent the official record. The Total Maximum Daily Load and Water Quality Management Plan documents represent the official record. DEQ recommends referring to these documents for all regulatory purposes and as necessary for any missing information. Visit DEQ's ",
+                    tags$a(href = "https://www.oregon.gov/deq/wq/tmdls/pages/default.aspx", "TMDL program homepage",
+                           target = "_blank")," for more information.")
 
 ui_popuup <- shiny::modalDialog(title = "TMDL Query Tool Information",
-                                tags$p(txt_popup),
+                                txt_popup,
                                 size = "m",
                                 easyClose = FALSE,
                                 footer = shiny::modalButton("OK"))
@@ -484,7 +486,7 @@ server <- function(input, output, session) {
 
       if (!is.null(input$select_wql_param)) {
         fr <- fr %>%
-          dplyr::filter(TMDL_wq_limited_parameter %in% input$select_wql_param)
+          dplyr::filter(TMDL_parameter %in% input$select_wql_param)
       }
 
       if (!is.null(input$select_tmdl_polluntant )) {
@@ -544,7 +546,7 @@ server <- function(input, output, session) {
 
       if (!is.null(input$select_wql_param)) {
         fau <- fau %>%
-          dplyr::filter(TMDL_wq_limited_parameter %in% input$select_wql_param)
+          dplyr::filter(TMDL_parameter %in% input$select_wql_param)
       }
 
       if (!is.null(input$select_tmdl_polluntant)) {
@@ -613,7 +615,7 @@ server <- function(input, output, session) {
 
       if (!is.null(input$select_wql_param)) {
         fau_gnis <- fau_gnis %>%
-          dplyr::filter(TMDL_wq_limited_parameter %in% input$select_wql_param)
+          dplyr::filter(TMDL_parameter %in% input$select_wql_param)
       }
 
       if (!is.null(input$select_tmdl_polluntant)) {
@@ -693,9 +695,9 @@ server <- function(input, output, session) {
     action_param_count_data <- shiny::reactive({
 
       fau %>%
-        dplyr::select(action_id, TMDL_wq_limited_parameter, AU_ID) %>%
+        dplyr::select(action_id, TMDL_parameter, AU_ID) %>%
         dplyr::distinct() %>%
-        dplyr::group_by(action_id, TMDL_wq_limited_parameter) %>%
+        dplyr::group_by(action_id, TMDL_parameter) %>%
         dplyr::summarise(AU_count = dplyr::n())
 
     })
@@ -705,20 +707,20 @@ server <- function(input, output, session) {
 
       df <- fau %>%
         dplyr::select(TMDL_name, TMDL_issue_date, EPA_action_date,
-                      action_id, TMDL_wq_limited_parameter) %>%
+                      action_id, TMDL_parameter) %>%
         dplyr::distinct() %>%
         dplyr::left_join(action_param_count_data(),
-                         by = c("action_id", "TMDL_wq_limited_parameter")) %>%
-        dplyr::arrange(TMDL_name, TMDL_wq_limited_parameter)
+                         by = c("action_id", "TMDL_parameter")) %>%
+        dplyr::arrange(TMDL_name, TMDL_parameter)
 
       tmdl_parameters_app %>%
-        dplyr::left_join(df, by = c("action_id", "TMDL_wq_limited_parameter")) %>%
-        dplyr::arrange(TMDL_name, TMDL_wq_limited_parameter) %>%
+        dplyr::left_join(df, by = c("action_id", "TMDL_parameter")) %>%
+        dplyr::arrange(TMDL_name, TMDL_parameter) %>%
         dplyr::select(TMDL = TMDL_name,
                       "TMDL Completion Date" = TMDL_issue_date,
                       "EPA Approval Date" = EPA_action_date,
                       "EPA Action ID" = action_id,
-                      "303(d) Parameters Addressed" = TMDL_wq_limited_parameter,
+                      "303(d) Parameters Addressed" = TMDL_parameter,
                       "TMDL Pollutants" = TMDL_pollutant,
                       "Count of Assessment Units Based on Query" = AU_count,
                       "Total Count of Assessment Units Addressed by TMDL Action" = AU_count_total)
@@ -747,7 +749,7 @@ server <- function(input, output, session) {
                       "EPA Action ID" = action_id,
                       "TMDL Status" = TMDL_status,
                       "TMDL Status Comment" = TMDL_status_comment,
-                      "303(d) Parameters Addressed" = TMDL_wq_limited_parameter,
+                      "303(d) Parameters Addressed" = TMDL_parameter,
                       "TMDL Pollutants" = TMDL_pollutant,
                       "Count of Assessment Units Based on Query" = AU_count,
                       "Total Count of Assessment Units Addressed by TMDL Action" = AU_count_total,
@@ -912,7 +914,7 @@ server <- function(input, output, session) {
       fau_gnis %>%
         dplyr::select("Assessment Unit GNIS ID" = AU_GNIS,
                       "Assessment Unit GNIS Name" = AU_GNIS_Name,
-                      "303(d) Parameter Addressed" = TMDL_wq_limited_parameter,
+                      "303(d) Parameter Addressed" = TMDL_parameter,
                       "TMDL Pollutant" = TMDL_pollutant,
                       "TMDL Scope" = TMDL_scope,
                       "Fish Use Period" = Period,
@@ -950,11 +952,11 @@ server <- function(input, output, session) {
     au_data <- shiny::reactive({
 
       fau %>%
-        dplyr::arrange(AU_ID, TMDL_wq_limited_parameter, TMDL_pollutant) %>%
+        dplyr::arrange(AU_ID, TMDL_parameter, TMDL_pollutant) %>%
         dplyr::select("Assessment Unit ID" = AU_ID,
                       "Assessment Unit Name" = AU_Name,
                       "Assessment Unit Description" = AU_Description,
-                      "303(d) Parameter Addressed" = TMDL_wq_limited_parameter,
+                      "303(d) Parameter Addressed" = TMDL_parameter,
                       "TMDL Pollutant" = TMDL_pollutant,
                       "TMDL Scope" = TMDL_scope,
                       "Fish Use Period" = Period,
