@@ -19,9 +19,9 @@ save(col_desc_app, file = file.path("data", "col_desc_app.rda"))
 # tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
 #   dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name", "citation_abbreviated")],
 #                    by = "action_id") %>%
-#   dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant", "TMDL_status")],
-#                    by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
-#   dplyr::select(any_of(c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant",
+#   dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_parameter", "TMDL_pollutant", "TMDL_status")],
+#                    by = c("action_id", "TMDL_parameter", "TMDL_pollutant")) %>%
+#   dplyr::select(any_of(c("action_id", "TMDL_parameter", "TMDL_pollutant",
 #                          "TMDL_scope", "Period", "geo_id", "HUC6_full", "HUC8_full",
 #                          "GNIS_Name", "AU_ID", "AU_GNIS", "LengthKM",
 #                          "TMDL_name", "citation_abbreviated", "TMDL_status")))
@@ -44,11 +44,9 @@ tmdl_geo_id_app <- tmdl_reaches %>%
                                               "TMDL_issue_date", "EPA_action_date",
                                               "citation_abbreviated")],
                    by = "action_id") %>%
-  dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant", "TMDL_status")],
-                   by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
   dplyr::filter(!is.na(geo_id)) %>%
   dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
-  dplyr::select(any_of(c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant",
+  dplyr::select(any_of(c("action_id", "TMDL_parameter", "TMDL_pollutant",
                          "TMDL_scope", "geo_id", "HUC6_full", "HUC8_full",
                          "AU_ID", "AU_Name", "AU_GNIS", "AU_GNIS_Name",
                          "TMDL_name", "TMDL_issue_date", "EPA_action_date",
@@ -74,8 +72,6 @@ tmdl_au_app <- odeqtmdl::tmdl_au %>%
                                               "citation_abbreviated")],
                    by = "action_id") %>%
   dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
-  dplyr::left_join(odeqtmdl::tmdl_parameters,
-                   by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant")) %>%
   dplyr::mutate(URL = case_when(TMDL_status %in% c("Active", "Not Active") ~
                                   paste0("https://www.arcgis.com/apps/webappviewer/index.html?id=d3c176c743c042b7a92f91070ddfaa5c&query=d37ee6195856496a85e09dba11c183a3,AU_ID,",AU_ID),
                                 TMDL_status == "In Development" ~
@@ -89,9 +85,7 @@ tmdl_au_gnis_app <- odeqtmdl::tmdl_au_gnis %>%
                                               "TMDL_issue_date", "EPA_action_date",
                                               "citation_abbreviated")],
                    by = "action_id") %>%
-  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
-  dplyr::left_join(odeqtmdl::tmdl_parameters,
-                   by = c("action_id", "TMDL_wq_limited_parameter", "TMDL_pollutant"))
+  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")"))
 
 save(tmdl_au_gnis_app, file = file.path("data", "tmdl_au_gnis_app.rda"))
 
@@ -107,11 +101,11 @@ save(tmdl_au_gnis_LU, file = file.path("data", "tmdl_au_gnis_LU.rda"))
 # Number of TMDLs
 AU_count_param <- tmdl_au_app %>%
   dplyr::filter(TMDL_scope == "TMDL" & TMDL_status %in% c("Active", "In Development")) %>%
-  dplyr::group_by(action_id, TMDL_wq_limited_parameter, AU_ID) %>%
+  dplyr::group_by(action_id, TMDL_parameter, AU_ID) %>%
   dplyr::summarise(TMDL_length_km = max(TMDL_length_km, na.rm = TRUE)) %>%
-  dplyr::select(action_id, TMDL_wq_limited_parameter, AU_ID, TMDL_length_km) %>%
+  dplyr::select(action_id, TMDL_parameter, AU_ID, TMDL_length_km) %>%
   dplyr::distinct() %>%
-  dplyr::group_by(action_id, TMDL_wq_limited_parameter) %>%
+  dplyr::group_by(action_id, TMDL_parameter) %>%
   dplyr::summarise(AU_count_total = dplyr::n(),
                    AU_TMDL_length_km = sum(TMDL_length_km))
 
@@ -124,8 +118,8 @@ AU_count_actions1 <- AU_count_param %>%
 # Number of TMDLs by action
 AU_count_actions <- tmdl_au_app %>%
   dplyr::group_by(action_id) %>%
-  dplyr::summarise(TMDL_wq_limited_parameter =
-                     paste0(sort(unique(TMDL_wq_limited_parameter)), collapse = ", "),
+  dplyr::summarise(TMDL_parameter =
+                     paste0(sort(unique(TMDL_parameter)), collapse = ", "),
                    TMDL_pollutant = paste0(sort(unique(TMDL_pollutant)), collapse = ", ")) %>%
   dplyr::ungroup() %>%
   dplyr::distinct() %>%
@@ -135,16 +129,22 @@ AU_count_actions <- tmdl_au_app %>%
 
 # tmdl_actions -----------------------------------------------------------------
 
-tmdl_status_comment <- odeqtmdl::tmdl_parameters %>%
-  select(action_id, TMDL_status_comment) %>%
+# tmdl_status_comment <- odeqtmdl::tmdl_parameters %>%
+#   select(action_id, TMDL_status_comment) %>%
+#   drop_na(TMDL_status_comment) %>%
+#   group_by(action_id) %>%
+#   summarise(TMDL_status_comment = unique(TMDL_status_comment)) %>%
+#   distinct()
+
+tmdl_status_comment <- odeqtmdl::tmdl_actions %>%
+  select(action_id, TMDL_status_comment = TMDL_comment) %>%
   drop_na(TMDL_status_comment) %>%
-  group_by(action_id) %>%
-  summarise(TMDL_status_comment = unique(TMDL_status_comment)) %>%
   distinct()
 
 
-tmdl_status <- odeqtmdl::tmdl_parameters %>%
+tmdl_status <- odeqtmdl::tmdl_au %>%
   select(action_id, TMDL_status) %>%
+  distinct() %>%
   group_by(action_id) %>%
   summarise(TMDL_status = paste0(sort(unique(TMDL_status)), collapse = " and ")) %>%
   distinct() %>%
@@ -166,17 +166,17 @@ save(tmdl_actions_app, file = file.path("data", "tmdl_actions_app.rda"))
 # tmdl parameters --------------------------------------------------------------
 
 tmdl_parameters_app <- odeqtmdl::tmdl_parameters %>%
-  dplyr::group_by(action_id, TMDL_wq_limited_parameter) %>%
+  dplyr::group_by(action_id, TMDL_parameter) %>%
   dplyr::summarise(TMDL_pollutant = paste0(sort(unique(TMDL_pollutant)), collapse = ", ")) %>%
   dplyr::distinct() %>%
-  dplyr::left_join(AU_count_param, by = c("action_id", "TMDL_wq_limited_parameter"))
+  dplyr::left_join(AU_count_param, by = c("action_id", "TMDL_parameter"))
 
 save(tmdl_parameters_app, file = file.path("data", "tmdl_parameters_app.rda"))
 
 
 # tmdl_wla ---------------------------------------------------------------------
 
-tmdl_pollu <- odeqtmdl::tmdl_parameters %>%
+tmdl_pollu <- odeqtmdl::tmdl_au %>%
   dplyr::select(action_id, TMDL_pollutant, TMDL_status) %>%
   dplyr::distinct()
 
