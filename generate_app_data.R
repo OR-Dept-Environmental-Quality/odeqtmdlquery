@@ -8,49 +8,23 @@ library(duckdb)
 library(odeqtmdl)
 library(readxl)
 
+package_path <- "C:/Workspace/GitHub/odeqtmdl"
+
 # Column Descriptions ----------------------------------------------------------
 
 col_desc_app <- read_xlsx("column_definitions.xlsx", sheet = "Column_Descriptions")
 
 save(col_desc_app, file = file.path("data", "col_desc_app.rda"))
 
-# tmdl_reaches -----------------------------------------------------------------
+# tmdl target reaches ----------------------------------------------------------
 
-# tmdl_reaches <- odeqtmdl::tmdl_reaches() %>%
-#   dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name", "citation_abbreviated")],
-#                    by = "action_id") %>%
-#   dplyr::left_join(odeqtmdl::tmdl_parameters[, c("action_id", "TMDL_parameter", "TMDL_pollutant", "TMDL_status")],
-#                    by = c("action_id", "TMDL_parameter", "TMDL_pollutant")) %>%
-#   dplyr::select(any_of(c("action_id", "TMDL_parameter", "TMDL_pollutant",
-#                          "TMDL_scope", "Period", "geo_id", "HUC6_full", "HUC8_full",
-#                          "GNIS_Name", "AU_ID", "AU_GNIS", "LengthKM",
-#                          "TMDL_name", "citation_abbreviated", "TMDL_status")))
-#
-# saveRDS(tmdl_reaches, compress = TRUE, file = file.path("data", "tmdl_reaches_app.RDS"))
-
-#vroom_write(x = tmdl_reaches, file = file.path("data", "tmdl_reaches_app_vroom.csv"))
-
-
-# read using duckdb
-
-package_path <- "C:/Users/rmichie/OneDrive - Oregon/GitHub/odeqtmdl"
-
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = file.path(package_path, "data_raw", "tmdl_reaches.duckdb"))
-tmdl_reaches <- DBI::dbReadTable(con, "tmdl_reaches")
-duckdb::dbDisconnect(con, shutdown = TRUE)
-
-tmdl_geo_id_app <- tmdl_reaches %>%
-  dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name",
-                                              "TMDL_issue_date", "EPA_action_date",
-                                              "citation_abbreviated")],
+tmdl_geo_id_app <- odeqtmdl::tmdl_targets %>%
+  dplyr::left_join(odeqtmdl::tmdl_target_reaches, by = c("action_id", "geo_id"),
+                   relationship = "many-to-many") %>%
+  dplyr::left_join(odeqtmdl::tmdl_actions[, c("action_id", "TMDL_name")],
                    by = "action_id") %>%
-  dplyr::filter(!is.na(geo_id)) %>%
-  dplyr::mutate(TMDL_name = paste0(TMDL_name," (",citation_abbreviated,")")) %>%
-  dplyr::select(any_of(c("action_id", "TMDL_parameter", "TMDL_pollutant",
-                         "TMDL_scope", "geo_id", "HUC6_full", "HUC8_full",
-                         "AU_ID", "AU_Name", "AU_GNIS", "AU_GNIS_Name",
-                         "TMDL_name", "TMDL_issue_date", "EPA_action_date",
-                         "citation_abbreviated", "TMDL_status"))) %>%
+  dplyr::select(any_of(c("action_id", "TMDL_name", "TMDL_pollutant",
+                         "geo_id", "AU_ID", "AU_GNIS_Name"))) %>%
   dplyr::distinct()
 
 save(tmdl_geo_id_app, file = file.path("data", "tmdl_geo_id_app.rda"))
@@ -128,13 +102,6 @@ AU_count_actions <- tmdl_au_app %>%
 #save(AU_count_actions, file = file.path("data", "AU_count_actions.rda"))
 
 # tmdl_actions -----------------------------------------------------------------
-
-# tmdl_status_comment <- odeqtmdl::tmdl_parameters %>%
-#   select(action_id, TMDL_status_comment) %>%
-#   drop_na(TMDL_status_comment) %>%
-#   group_by(action_id) %>%
-#   summarise(TMDL_status_comment = unique(TMDL_status_comment)) %>%
-#   distinct()
 
 tmdl_status_comment <- odeqtmdl::tmdl_actions %>%
   select(action_id, TMDL_status_comment = TMDL_comment) %>%
