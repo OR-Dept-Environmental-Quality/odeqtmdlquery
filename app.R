@@ -9,7 +9,7 @@ library(reactable)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "1.0.2"
+odeqtmdl_version <- "1.1.2"
 
 # Load data --------------------------------------------------------------------
 
@@ -460,67 +460,6 @@ server <- function(input, output, session) {
 
     }
 
-    # Filter geo_ids based on inputs = fr
-    {
-      fr <- tmdl_geo_id_app
-
-      if (!is.null(input$select_tmdl_status)) {
-
-        fr <- fr %>%
-          dplyr::filter(TMDL_status %in% input$select_tmdl_status)
-      }
-
-      fr <- fr %>%
-        dplyr::filter((EPA_action_date >= date_from & EPA_action_date <= date_to)
-                      | is.na(EPA_action_date))
-
-      if (!is.null(input$select_tmdl_names)) {
-        fr <- fr %>%
-          dplyr::filter(TMDL_name %in% input$select_tmdl_names)
-      }
-
-      if (!is.null(input$select_tmdl_scope)) {
-        fr <- fr %>%
-          dplyr::filter(TMDL_scope %in% input$select_tmdl_scope)
-      }
-
-      if (!is.null(input$select_wql_param)) {
-        fr <- fr %>%
-          dplyr::filter(TMDL_parameter %in% input$select_wql_param)
-      }
-
-      if (!is.null(input$select_tmdl_polluntant )) {
-        fr <- fr %>%
-          dplyr::filter(TMDL_pollutant %in% input$select_tmdl_polluntant)
-      }
-
-      if (length(select_au_name_filter) > 0) {
-        fr <- fr %>%
-          dplyr::filter(AU_Name %in% select_au_name_filter)
-      }
-
-      if (length(select_au_gnis_name_filter) > 0) {
-        fr <- fr %>%
-          dplyr::filter(AU_GNIS_Name %in% select_au_gnis_name_filter)
-      }
-
-      if (!is.null(input$select_au)) {
-        fr <- fr %>%
-          dplyr::filter(AU_ID %in% input$select_au)
-      }
-
-      if (!is.null(input$select_huc6)) {
-        fr <- fr %>%
-          dplyr::filter(HUC6_full %in% input$select_huc6)
-      }
-
-      if (!is.null(input$select_huc8)) {
-        fr <- fr %>%
-          dplyr::filter(HUC8_full %in% input$select_huc8)
-      }
-
-    }
-
     # Filter tmdl_aus based on inputs = fau
     {
       fau <- tmdl_au_app
@@ -629,6 +568,10 @@ server <- function(input, output, session) {
 
       }
 
+      f_au_gnis_name <- fau_gnis %>%
+        dplyr::pull(AU_GNIS_Name) %>%
+        unique()
+
     }
 
     # Filter tmdl_wla by AU and pollutant
@@ -652,6 +595,23 @@ server <- function(input, output, session) {
           dplyr::filter(TMDL_name %in% input$select_tmdl_names)
       }
 
+    }
+
+    # get geo_ids by action ID, AU ID, pollutant, and AU GNIS
+    {
+      fgeoid <- tmdl_geo_id_app %>%
+        dplyr::filter(action_id %in% f_action_ids)
+
+      fgeoid <- fgeoid%>%
+        dplyr::filter(AU_ID %in% f_au_ids)
+
+      fgeoid <- fgeoid %>%
+        dplyr::filter(TMDL_pollutant %in% f_pollutants)
+
+      if (length(f_au_gnis_name) > 0) {
+      fgeoid <- fgeoid %>%
+        dplyr::filter(AU_GNIS_Name %in% f_au_gnis_name)
+      }
     }
 
     # Text updates
@@ -829,7 +789,7 @@ server <- function(input, output, session) {
 
     target_data <- shiny::reactive({
 
-      pollus_geo_ids <- fr %>%
+      pollus_geo_ids <- fgeoid %>%
         dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
         dplyr::distinct()
 
@@ -839,7 +799,7 @@ server <- function(input, output, session) {
         dplyr::distinct() %>%
         dplyr::anti_join(pollus_geo_ids, by = c("action_id", "TMDL_pollutant", "TMDL_name"))
 
-      fr %>%
+      fgeoid %>%
         dplyr::select(action_id, TMDL_pollutant, geo_id, TMDL_name) %>%
         dplyr::distinct() %>%
         dplyr::bind_rows(pollus_no_geo_ids) %>%
@@ -884,7 +844,9 @@ server <- function(input, output, session) {
                              "Location" = reactable::colDef(headerVAlign = "center"),
                              "Location Geo ID" = reactable::colDef(headerVAlign = "center",
                                                                    cell = function(value, index) {
-                                                                     htmltools::tags$a(href = target_data()[index, "URL"], target = "_blank", as.character(value))
+                                                                     if(!is.na(value)) {
+                                                                       htmltools::tags$a(href = target_data()[index, "URL"], target = "_blank", as.character(value))
+                                                                     }
                                                                    }
                              ),
                              "TMDL Target" = reactable::colDef(headerVAlign = "center"),
