@@ -1,10 +1,10 @@
 library(shiny)
-library(shinydashboardPlus)
 library(dplyr)
 library(lubridate)
 library(openxlsx)
 library(htmltools)
 library(reactable)
+library(bslib)
 
 options(dplyr.summarise.inform = FALSE)
 
@@ -47,49 +47,49 @@ tmdl_au_names_all <- sort(unique(c(tmdl_au_names,
 
 #- UI header -------------------------------------------------------------------
 
-ui_header <- shinydashboard::dashboardHeader(title = "Oregon TMDL Query Tool",
-                                             tags$li(shiny::a(tags$img(src = 'DEQ-logo-horizontal-white370x74.png',
-                                                                       height = "50px"),
-                                                              href = 'https://www.oregon.gov/deq/Pages/index.aspx',
-                                                              target = '_blank',
-                                                              style = "padding-top:10px;"),
-                                                     class = "dropdown"))
+help_popover <- function(id, label, help_text) {
+  bslib::popover(tags$button(type = "button",
+                             class = "filter-help-button",
+                             `aria-label` = paste("Show help for", label),
+                             "?"),
+                 tags$p(class = "popover-help-text", help_text),
+                 title = label,
+                 id = paste0(id, "_help"),
+                 placement = "right",
+                 options = list(container = "body"))
+}
+
+filter_help <- function(id, label, help_text) {
+  tags$span(class = "filter-label-row",
+            tags$span(label, class = "filter-label-text"),
+            help_popover(id, label, help_text))
+}
 
 #- UI footer -------------------------------------------------------------------
 
 txt_footer <- tags$p("The Oregon Department of Environmental Quality does not discriminate on the basis of race, color, national origin, disability, age, sex, religion, sexual orientation, gender identity, or marital status in administration of its programs or activities. DEQ does not intimidate or retaliate against any individual or group because they have exercised their rights to participate in actions protected, or oppose action prohibited, by 40 C.F.R. Parts 5 and 7, or for the purpose of interfering with such rights. For more information visit ",
-                     tags$a(href = "https://www.oregon.gov/deq/about-us/Pages/titleVIaccess.aspx", "Civil Rights, Environmental Justice and Accessibility",
-                            target = "_blank")," web page.")
+                     tags$a(href = "https://www.oregon.gov/deq/about-us/Pages/titleVIaccess.aspx",
+                            "Civil Rights, Environmental Justice and Accessibility",
+                            target = "_blank",
+                            rel = "noopener noreferrer",
+                            tags$span(class = "visually-hidden",
+                                      " opens in a new tab"))," web page.")
 
-ui_footer <- shinydashboardPlus::dashboardFooter(
-  left = tags$footer(class = "footer",
-                     strong("Non-discrimination Statement"),
-                     br(),
-                     txt_footer))
-
-#- UI sidebar ------------------------------------------------------------------
-
-# ui_sidebar_menu_item1 <- shinydashboard::menuItem("Query", tabName = "query",
-#                                                   icon = icon(name = "filter",
-#                                                               lib = "font-awesome"))
-#
-# ui_sidebar_menu_item2 <- shinydashboard::menuItem("Help", tabName = "help",
-#                                                   icon = icon(name = "glyphicon glyphicon-question-sign",
-#                                                               lib = "glyphicon"))
-
-ui_sidebar <- shinydashboard::dashboardSidebar(disable = TRUE)
-
-# ui_sidebar <- shinydashboard::dashboardSidebar(disable = TRUE,
-#                                                shinydashboard::sidebarMenu(
-#                                                ui_sidebar_menu_item1,
-#                                                ui_sidebar_menu_item2)
-#                                                )
+ui_footer <- tags$footer(class = "app-footer",
+                         role = "contentinfo",
+                         tags$strong("Non-discrimination Statement"),
+                         tags$br(),
+                         txt_footer)
 
 #- UI popup --------------------------------------------------------------------
 
 txt_popup <- tags$p("The TMDL Query Tool provides a way to explore information about TMDLs in Oregon and where they apply. While the database includes most TMDL information, it does not represent the official record. The Total Maximum Daily Load and Water Quality Management Plan documents represent the official record. DEQ recommends referring to these documents for all regulatory purposes and as necessary for any missing information. Visit DEQ's ",
-                    tags$a(href = "https://www.oregon.gov/deq/wq/tmdls/pages/default.aspx", "TMDL program homepage",
-                           target = "_blank")," for more information.")
+                    tags$a(href = "https://www.oregon.gov/deq/wq/tmdls/pages/default.aspx",
+                           "TMDL program homepage",
+                           target = "_blank",
+                           rel = "noopener noreferrer",
+                           tags$span(class = "visually-hidden",
+                                     " opens in a new tab"))," for more information.")
 
 ui_popuup <- shiny::modalDialog(title = "TMDL Query Tool Information",
                                 txt_popup,
@@ -126,245 +126,268 @@ txt_au_gnis <- "The following DEQ GNIS Assessment Units are included in the TMDL
 
 txt_wla <- "The following NPDES point sources received waste load allocations in the TMDLs matching your query. Not all point sources may be listed. See the TMDL document for more information."
 
-#- UI body query row 1 ---------------------------------------------------------
-ui_body_query_row1 <- shiny::fluidRow(
-  shiny::column(width = 4,
-                shiny::selectizeInput(inputId = "select_tmdl_names",
-                                      label = tags$span("TMDL Name",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "Name of the TMDL document")),
-                                      choices = tmdl_names,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      width = "100%",
-                                      options = list(plugins = list("remove_button")))),
-  shiny::column(width = 2,
-                shiny::selectizeInput(inputId = "select_tmdl_status",
-                                      label = tags$span("TMDL status",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = txt_i_status)),
-                                      choices = tmdl_statuses,
-                                      selected = "Active",
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%")),
-  shiny::column(width = 6,
-                tags$div(shiny::selectizeInput(inputId = "select_fromyear",
-                                               label = tags$span("EPA Action",
-                                                                 tags$p(
-                                                                   class = "glyphicon glyphicon-info-sign",
-                                                                   style = "color:#0072B2;",
-                                                                   title = txt_i_daterange)),
-                                               choices = tmdl_years,
-                                               selected = min(tmdl_years),
-                                               multiple = FALSE,
-                                               options = list(plugins = list("remove_button")),
-                                               width = "100px"),  style = "display:inline-block"),
-                tags$div(p(" to "),  style = "display:inline-block"),
-                tags$div(shiny::selectizeInput(inputId = "select_toyear",
-                                               label = NULL,
-                                               choices = tmdl_years,
-                                               selected = max(tmdl_years),
-                                               multiple = FALSE,
-                                               options = list(plugins = list("remove_button")),
-                                               width = "100px"),  style = "display:inline-block"))
-)
+txt_query_placeholder <- "These tabs will populate once a query is made."
 
-#- UI body query row 2 ---------------------------------------------------------
-ui_body_query_row2 <- shiny::fluidRow(
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_wql_param",
-                                      label = tags$span("303(d) parameter addressed",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "Water quality limited 303(d) parameter that the TMDL addresses")),
-                                      choices = tmdl_parameters,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%")),
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_tmdl_polluntant",
-                                      label = tags$span("TMDL pollutant",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "Pollutant causing the water quality impairment.")),
-                                      choices = tmdl_pollutants,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%")),
-  shiny::column(width = 2,
-                shiny::selectizeInput(inputId = "select_tmdl_scope",
-                                      label = tags$span("TMDL scope",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = txt_i_scope)),
-                                      choices = tmdl_scopes,
-                                      selected = "TMDL",
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%"))
-)
+query_results_reactable_language <- reactable::reactableLang(searchLabel = "Search query results")
 
-#- UI body query row 3 ---------------------------------------------------------
-ui_body_query_row3 <- shiny::fluidRow(
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_huc6",
-                                      label = tags$span("Basin",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "Basin name and six digit USGS hydrological unit code (HUC6)")),
-                                      choices = tmdl_huc6,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%")),
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_huc8",
-                                      label = tags$span("Subbasin",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "Subbasin name and eight digit USGS hydrological unit code (HUC8)")),
-                                      choices = tmdl_huc8,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button")),
-                                      width = "100%")),
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_au",
-                                      label = tags$span("Assessment Unit ID",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "DEQ Assessment Unit ID")),
-                                      choices = NULL,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button"),
-                                                     maxOptions = 7000),
-                                      width = "100%")),
-  shiny::column(width = 3,
-                shiny::selectizeInput(inputId = "select_au_name",
-                                      label = tags$span("Assessment Unit Name or Stream Name",
-                                                        tags$p(
-                                                          class = "glyphicon glyphicon-info-sign",
-                                                          style = "color:#0072B2;",
-                                                          title = "DEQ assessment unit name or GNIS assessment unit name (stream name) in watershed assessment units")),
-                                      choices = NULL,
-                                      selected = character(0),
-                                      multiple = TRUE,
-                                      options = list(plugins = list("remove_button"),
-                                                     maxOptions = 15000),
-                                      width = "100%")))
+action_reactable_language <- reactable::reactableLang(searchLabel = "Search query results",
+                                                      detailsExpandLabel = "Show or hide TMDL pollutant details")
 
-#- UI body query row 4 buttons -------------------------------------------------
-ui_body_query_row4 <- shiny::fluidRow(
-  shiny::column(width = 2,
-                shiny::actionButton("filter_button", "Select",  icon("filter"))),
-  shiny::column(width = 2,
-                shiny::actionButton("reset_button", "Reset all")),
-  shiny::column(width = 2,
-                shiny::uiOutput(outputId = "download_button")))
+#- UI query help text ----------------------------------------------------------
 
-#- UI body help row 1 ---------------------------------------------------------
-# ui_body_help_row1 <- shiny::fluidRow(
-#   div(p(txt_popup)),
-#   shinydashboardPlus::accordion(
-#     id = "accordion1",
-#     shinydashboardPlus::accordionItem(
-#       title = "How to Query",
-#       collapsed = TRUE,
-#       "This is some text!"
-#     ),
-#     shinydashboardPlus::accordionItem(
-#       title = "Field Definitions",
-#       collapsed = TRUE,
-#       reactable::reactableOutput(outputId = "tab_col_defs",
-#                                  width = "100%")
-#
-#     )
-#   )
-# )
+txt_help_tmdl_names <- "Name of the TMDL document"
+txt_help_wql_param <- "The water quality parameter identifed on the 303(d) list of polluted waters that the TMDL addresses."
+txt_help_tmdl_pollutant <- "Pollutant causing the water quality impairment. The pollutant may be different from the 303(d) parameter."
+txt_help_huc6 <- "Basin name and six digit USGS hydrological unit code (HUC6)"
+txt_help_huc8 <- "Subbasin name and eight digit USGS hydrological unit code (HUC8)"
+txt_help_au <- "DEQ Assessment Unit ID"
+txt_help_au_name <- "DEQ assessment unit name or GNIS assessment unit name (stream name) in watershed assessment units"
 
-#- UI body tabs ----------------------------------------------------------------
-ui_body_tabs <- shiny::tabsetPanel(
-  id = "panels",
-  type = "tabs",
-  #footer = ui_footer,
-  shiny::tabPanel(title = "TMDL Actions",
-                  value = "tmdl_actions_tab",
-                  br(),
-                  shiny::textOutput(outputId = "text_actions"),
-                  reactable::reactableOutput(outputId = "tmdl_actions_result",
-                                             width = "100%")),
-  shiny::tabPanel(title = "TMDL Pollutant Targets",
-                  value = "tmdl_targets_tab",
-                  br(),
-                  shiny::textOutput(outputId = "text_targets"),
-                  reactable::reactableOutput(outputId = "tmdl_target_result",
-                                             width = "100%")),
-  shiny::tabPanel(title = "Assessment Units",
-                  value = "tmdl_au_tab",
-                  br(),
-                  shiny::textOutput(outputId = "text_au"),
-                  reactable::reactableOutput(outputId = "tmdl_au_result",
-                                             width = "100%")),
-  shiny::tabPanel(title = "GNIS Assessment Units",
-                  value = "tmdl_au_gnis_tab",
-                  br(),
-                  shiny::textOutput(outputId = "text_au_gnis"),
-                  reactable::reactableOutput(outputId = "tmdl_au_gnis_result",
-                                             width = "100%")),
-  shiny::tabPanel(title = "Point Source WLAs",
-                  value = "tmdl_wla_tab",
-                  br(),
-                  shiny::textOutput(outputId = "text_wla"),
-                  reactable::reactableOutput(outputId = "tmdl_wla_result",
-                                             width = "100%"))
-)
+#- UI sidebar ------------------------------------------------------------------
 
-#- UI body combined ------------------------------------------------------------
-ui_body <- shinydashboard::dashboardBody(
-  shiny::includeCSS("www/DEQ_web_style.css"),
-  ui_popuup,
-  shiny::fluidRow(style = "padding-top:20px"),
-  ui_body_query_row1,
-  ui_body_query_row2,
-  ui_body_query_row3,
-  ui_body_query_row4,
-  shiny::br(),
-  ui_body_tabs
-  # shinydashboard::tabItems(
-  #   shinydashboard::tabItem(tabName = "query",
-  #                           ui_body_query_row1,
-  #                           ui_body_query_row2,
-  #                           ui_body_query_row3,
-  #                           ui_body_query_row4,
-  #                           shiny::br(),
-  #                           ui_body_tabs),
-  #   shinydashboard::tabItem(tabName = "help",
-  #                           ui_body_help_row1,
-  #                           div(p("Help tab content"))
-  #   )
-  # )
-)
+ui_filter_sidebar <- bslib::sidebar(id = "filter_sidebar",
+                                    title = "Query filters",
+                                    position = "left",
+                                    open = "desktop",
+                                    width = 360,
 
-#- UI All ----------------------------------------------------------------------
+                                    tags$section(id = "tmdl-query-filters",
+                                                 class = "query-filter-content",
+                                                 tabindex = "-1",
+                                                 role = "region",
+                                                 `aria-label` = "TMDL query filters",
 
-ui <- shinydashboardPlus::dashboardPage(header = ui_header,
-                                        sidebar = ui_sidebar,
-                                        body = ui_body,
-                                        footer = ui_footer)
+                                    tags$p(class = "sidebar-instructions",
+                                           "Use these filters to select TMDLs and update all result tabs."),
+
+                                    shiny::selectizeInput(inputId = "select_tmdl_names",
+                                                          label = filter_help("select_tmdl_names", "TMDL Name", txt_help_tmdl_names),
+                                                          choices = tmdl_names,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          width = "100%",
+                                                          options = list(plugins = list("remove_button"))),
+
+                                    shiny::selectizeInput(inputId = "select_tmdl_status",
+                                                          label = filter_help("select_tmdl_status", "TMDL status", txt_i_status),
+                                                          choices = tmdl_statuses,
+                                                          selected = "Active",
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    tags$fieldset(class = "date-range-fieldset",
+                                                  tags$legend(class = "filter-label-row",
+                                                              tags$span("EPA Action year range", class = "filter-label-text"),
+                                                              help_popover("epa_action", "EPA Action year range", txt_i_daterange)),
+                                                   tags$div(class = "date-range-controls",
+                                                           shiny::selectizeInput(inputId = "select_fromyear",
+                                                                                 label = "Query TMDL from year",
+                                                                                 choices = tmdl_years,
+                                                                                 selected = min(tmdl_years),
+                                                                                 multiple = FALSE,
+                                                                                 options = list(plugins = list("remove_button")),
+                                                                                 width = "100%"),
+                                                           shiny::selectizeInput(inputId = "select_toyear",
+                                                                                 label = "Query TMDL to year",
+                                                                                 choices = tmdl_years,
+                                                                                 selected = max(tmdl_years),
+                                                                                 multiple = FALSE,
+                                                                                 options = list(plugins = list("remove_button")),
+                                                                                 width = "100%"))),
+
+                                    shiny::selectizeInput(inputId = "select_wql_param",
+                                                          label = filter_help("select_wql_param", "303(d) parameter addressed", txt_help_wql_param),
+                                                          choices = tmdl_parameters,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_tmdl_polluntant",
+                                                          label = filter_help("select_tmdl_polluntant", "TMDL pollutant", txt_help_tmdl_pollutant),
+                                                          choices = tmdl_pollutants,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_tmdl_scope",
+                                                          label = filter_help("select_tmdl_scope", "TMDL scope", txt_i_scope),
+                                                          choices = tmdl_scopes,
+                                                          selected = "TMDL",
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_huc6",
+                                                          label = filter_help("select_huc6", "Basin", txt_help_huc6),
+                                                          choices = tmdl_huc6,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_huc8",
+                                                          label = filter_help("select_huc8", "Subbasin", txt_help_huc8),
+                                                          choices = tmdl_huc8,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button")),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_au",
+                                                          label = filter_help("select_au", "Assessment Unit ID", txt_help_au),
+                                                          choices = NULL,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button"),
+                                                                         maxOptions = 7000),
+                                                          width = "100%"),
+
+                                    shiny::selectizeInput(inputId = "select_au_name",
+                                                          label = filter_help("select_au_name", "Assessment Unit Name or Stream Name", txt_help_au_name),
+                                                          choices = NULL,
+                                                          selected = character(0),
+                                                          multiple = TRUE,
+                                                          options = list(plugins = list("remove_button"),
+                                                                         maxOptions = 15000),
+                                                          width = "100%"),
+
+                                    tags$div(class = "filter-actions",
+                                             shiny::actionButton("filter_button", "Query", shiny::icon("filter"), class = "btn-primary"),
+                                             shiny::actionButton("reset_button", "Reset Query", class = "btn-outline-secondary"),
+                                             shiny::uiOutput(outputId = "download_button"))))
+
+result_panel <- function(text_output_id, output_id) {
+  tags$section(class = "result-panel",
+               tags$div(role = "status",
+                        `aria-live` = "polite",
+                        `aria-atomic` = "true",
+                        shiny::textOutput(outputId = text_output_id)),
+               tags$div(class = "table-responsive-wrapper",
+                        role = "region",
+                        `aria-label` = "Query results table. Use arrow keys to scroll horizontally.",
+                        reactable::reactableOutput(output_id)))
+}
+
+ui <- bslib::page_fluid(theme = bslib::bs_theme(version = 5),
+                        lang = "en",
+                        title = "Oregon TMDL Query Tool",
+                        class = "app-page",
+
+                        tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "odeqtmdlquery.css")),
+
+                        # This changes the default bslib labels for certain elements
+                        # so they are more context oriented and understandable to
+                        # users with screen readers.
+                        tags$script(htmltools::HTML("
+                          document.addEventListener('DOMContentLoaded', function() {
+                            function setAttributeIfNeeded(element, attribute, value) {
+                              if (element.getAttribute(attribute) !== value) {
+                                element.setAttribute(attribute, value);
+                              }
+                            }
+
+                            function updateAccessibilityLabels() {
+                              document.querySelectorAll('.bslib-sidebar-layout .collapse-toggle').forEach(function(button) {
+                                setAttributeIfNeeded(button, 'aria-label', 'Toggle query sidebar');
+                                setAttributeIfNeeded(button, 'title', 'Toggle query sidebar');
+                              });
+
+                              document.querySelectorAll('.bslib-sidebar-resize-handle').forEach(function(handle) {
+                                setAttributeIfNeeded(handle, 'role', 'separator');
+                                setAttributeIfNeeded(handle, 'aria-orientation', 'vertical');
+                                setAttributeIfNeeded(handle, 'aria-label', 'Resize query sidebar');
+                                setAttributeIfNeeded(handle, 'title', 'Resize query sidebar');
+                              });
+
+                              document.querySelectorAll('.Reactable .rt-table').forEach(function(table) {
+                                setAttributeIfNeeded(table, 'aria-label', 'Query results table. Use arrow keys to scroll horizontally.');
+                              });
+                            }
+
+                            document.querySelectorAll('.skip-link').forEach(function(link) {
+                              link.addEventListener('click', function(event) {
+                                var target = document.querySelector(link.getAttribute('href'));
+                                if (target) {
+                                  var sidebarLayout = target.closest('.bslib-sidebar-layout');
+                                  var sidebarToggle = sidebarLayout ? sidebarLayout.querySelector('.collapse-toggle[aria-expanded=\"false\"]') : null;
+                                  event.preventDefault();
+                                  if (sidebarToggle) {
+                                    sidebarToggle.click();
+                                    window.setTimeout(function() {
+                                      target.focus();
+                                    }, 200);
+                                  } else {
+                                    target.focus();
+                                  }
+                                }
+                              });
+                            });
+
+                            updateAccessibilityLabels();
+                            new MutationObserver(updateAccessibilityLabels).observe(document.body, {
+                              childList: true,
+                              subtree: true
+                            });
+                          });
+                        ")),
+
+                        tags$a(href = "#tmdl-query-filters",
+                               class = "skip-link",
+                               "Skip to TMDL query filters"),
+
+                        tags$header(class = "app-header",
+                                    role = "banner",
+                                    tags$div(class = "app-header-inner",
+
+                                             tags$div(class = "app-title-block",
+                                                      tags$h1("Oregon TMDL Query Tool")),
+
+                                             tags$a(href = "https://www.oregon.gov/deq/Pages/index.aspx",
+                                                    target = "_blank",
+                                                    rel = "noopener noreferrer",
+                                                    class = "app-logo-link",
+                                                    tags$img(src = "DEQ-logo-horizontal-white370x74.png",
+                                                             alt = "Oregon Department of Environmental Quality home page.",
+                                                             class = "app-logo"),
+                                                    tags$span(class = "visually-hidden",
+                                                              " opens in a new tab")))),
+
+                        ui_popuup,
+
+                        tags$main(id = "main-content",
+                                  class = "app-main",
+                                  role = "main",
+
+                                  bslib::layout_sidebar(sidebar = ui_filter_sidebar,
+                                                        padding = "0.35rem",
+                                                        gap = "0.2rem",
+
+                                                        bslib::navset_tab(id = "panels",
+
+                                                                          bslib::nav_panel("TMDL Actions",
+                                                                                           value = "tmdl_actions_tab",
+                                                                                           result_panel("text_actions", "tmdl_actions_result")),
+
+                                                                          bslib::nav_panel("TMDL Pollutant Targets",
+                                                                                           value = "tmdl_targets_tab",
+                                                                                           result_panel("text_targets", "tmdl_target_result")),
+
+                                                                          bslib::nav_panel("Assessment Units",
+                                                                                           value = "tmdl_au_tab",
+                                                                                           result_panel("text_au", "tmdl_au_result")),
+
+                                                                          bslib::nav_panel("GNIS Assessment Units",
+                                                                                           value = "tmdl_au_gnis_tab",
+                                                                                           result_panel("text_au_gnis", "tmdl_au_gnis_result")),
+
+                                                                          bslib::nav_panel("Point Source WLAs",
+                                                                                           value = "tmdl_wla_tab",
+                                                                                           result_panel("text_wla", "tmdl_wla_result"))))),
+
+                        ui_footer)
 
 # Shiny Server -----------------------------------------------------------------
 
@@ -372,6 +395,12 @@ server <- function(input, output, session) {
 
   shiny::updateSelectizeInput(inputId = "select_au", choices = tmdl_au_ids, selected = character(0), server = TRUE)
   shiny::updateSelectizeInput(inputId = "select_au_name", choices = tmdl_au_names_all, selected = character(0), server = TRUE)
+
+  output$text_actions <- shiny::renderText({txt_query_placeholder})
+  output$text_targets <- shiny::renderText({txt_query_placeholder})
+  output$text_au <- shiny::renderText({txt_query_placeholder})
+  output$text_au_gnis <- shiny::renderText({txt_query_placeholder})
+  output$text_wla <- shiny::renderText({txt_query_placeholder})
 
   # Help Text
   # output$help <- shiny::renderUI({txt_help})
@@ -388,7 +417,7 @@ server <- function(input, output, session) {
                                                              align = "right", headerVAlign = "center",
                                                              aggregate = "count",
                                                              format = list(
-                                                               aggregated = colFormat(suffix = " Columns"))),
+                                                               aggregated = reactable::colFormat(suffix = " Columns"))),
                            "Description" = reactable::colDef(minWidth = 500, maxWidth = 800,
                                                              align = "right", headerVAlign = "center"),
                            "Values" = reactable::colDef(minWidth = 300, maxWidth = 500,
@@ -398,7 +427,8 @@ server <- function(input, output, session) {
                          showSortIcon = TRUE,
                          searchable = TRUE,
                          compact = TRUE,
-                         bordered = TRUE)
+                         bordered = TRUE,
+                         language = query_results_reactable_language)
   })
 
 
@@ -416,9 +446,11 @@ server <- function(input, output, session) {
     shiny::updateSelectInput(inputId = "select_huc6", selected = character(0))
     shiny::updateSelectInput(inputId = "select_huc8", selected = character(0))
 
-    output$text_actions <- shiny::renderText({character(0)})
-    output$text_targets <- shiny::renderText({character(0)})
-    output$text_wla <- shiny::renderText({character(0)})
+    output$text_actions <- shiny::renderText({txt_query_placeholder})
+    output$text_targets <- shiny::renderText({txt_query_placeholder})
+    output$text_au <- shiny::renderText({txt_query_placeholder})
+    output$text_au_gnis <- shiny::renderText({txt_query_placeholder})
+    output$text_wla <- shiny::renderText({txt_query_placeholder})
 
     #reactable::updateReactable(outputId = "tmdl_actions_result", data = data.frame() , selected = NA)
     #reactable::updateReactable(outputId = "tmdl_target_result", selected = NA)
@@ -609,8 +641,8 @@ server <- function(input, output, session) {
         dplyr::filter(TMDL_pollutant %in% f_pollutants)
 
       if (length(f_au_gnis_name) > 0) {
-      fgeoid <- fgeoid %>%
-        dplyr::filter(AU_GNIS_Name %in% f_au_gnis_name)
+        fgeoid <- fgeoid %>%
+          dplyr::filter(AU_GNIS_Name %in% f_au_gnis_name)
       }
     }
 
@@ -730,7 +762,12 @@ server <- function(input, output, session) {
                                                             value
                                                           } else {
                                                             # Render as a link
-                                                            htmltools::tags$a(href = action_data()[index, "URL"], target = "_blank", as.character(value))
+                                                            htmltools::tags$a(href = action_data()[index, "URL"],
+                                                                              target = "_blank",
+                                                                              rel = "noopener noreferrer",
+                                                                              as.character(value),
+                                                                              tags$span(class = "visually-hidden",
+                                                                                        " opens in a new tab"))
                                                           }
                                                         }),
                              "TMDL Completion Date" = reactable::colDef(maxWidth = 85,
@@ -780,8 +817,7 @@ server <- function(input, output, session) {
                                                                  outlined = TRUE,
                                                                  bordered = TRUE,
                                                                  fullWidth = FALSE))},
-                           onClick = "expand",
-                           rowStyle = list(cursor = "pointer")
+                           language = action_reactable_language
       )
     })
 
@@ -845,7 +881,12 @@ server <- function(input, output, session) {
                              "Location Geo ID" = reactable::colDef(headerVAlign = "center",
                                                                    cell = function(value, index) {
                                                                      if(!is.na(value)) {
-                                                                       htmltools::tags$a(href = target_data()[index, "URL"], target = "_blank", as.character(value))
+                                                                       htmltools::tags$a(href = target_data()[index, "URL"],
+                                                                                         target = "_blank",
+                                                                                         rel = "noopener noreferrer",
+                                                                                         as.character(value),
+                                                                                         tags$span(class = "visually-hidden",
+                                                                                                   " opens in a new tab"))
                                                                      }
                                                                    }
                              ),
@@ -866,7 +907,8 @@ server <- function(input, output, session) {
                            showSortIcon = TRUE,
                            searchable = TRUE,
                            compact = TRUE,
-                           bordered = TRUE)
+                           bordered = TRUE,
+                           language = query_results_reactable_language)
     })
 
     #- AU GNIS table Reactive --------------------------------------------------
@@ -906,7 +948,8 @@ server <- function(input, output, session) {
                            showSortIcon = TRUE,
                            searchable = TRUE,
                            compact = TRUE,
-                           bordered = TRUE)
+                           bordered = TRUE,
+                           language = query_results_reactable_language)
 
     })
 
@@ -937,7 +980,12 @@ server <- function(input, output, session) {
                            columns = list(
                              "Assessment Unit ID" = reactable::colDef(width = 250, headerVAlign = "center",
                                                                       cell = function(value, index) {
-                                                                        htmltools::tags$a(href = au_data()[index, "URL"], target = "_blank", as.character(value))
+                                                                        htmltools::tags$a(href = au_data()[index, "URL"],
+                                                                                          target = "_blank",
+                                                                                          rel = "noopener noreferrer",
+                                                                                          as.character(value),
+                                                                                          tags$span(class = "visually-hidden",
+                                                                                                    " opens in a new tab"))
                                                                       }),
                              "Assessment Unit Name"  = reactable::colDef(width = 200, headerVAlign = "center"),
                              "Assessment Unit Description" = reactable::colDef(width = 200, headerVAlign = "center"),
@@ -955,7 +1003,8 @@ server <- function(input, output, session) {
                            showSortIcon = TRUE,
                            searchable = TRUE,
                            compact = TRUE,
-                           bordered = TRUE)
+                           bordered = TRUE,
+                           language = query_results_reactable_language)
     })
 
     #- WLA table Reactive -------------------------------------------------------
@@ -990,7 +1039,8 @@ server <- function(input, output, session) {
                            showSortIcon = TRUE,
                            searchable = TRUE,
                            compact = TRUE,
-                           bordered = TRUE)
+                           bordered = TRUE,
+                           language = query_results_reactable_language)
     })
 
     #- Download ---------------------------------------------------
@@ -1003,7 +1053,7 @@ server <- function(input, output, session) {
                                   Column_Descriptions = col_desc_app,
                                   TMDL_actions = shiny::isolate(action_data()),
                                   TMDL_Pollutant_Targets = shiny::isolate(target_data()) |>
-                                    dplyr::select(-matches("TMDL Target")),
+                                    dplyr::select(-dplyr::matches("TMDL Target")),
                                   Assessment_Units = shiny::isolate(au_data()),
                                   GNIS_Assessment_Units = shiny::isolate(au_gnis_data()),
                                   Point_Sources = shiny::isolate(wla_data())),
@@ -1029,7 +1079,7 @@ server <- function(input, output, session) {
     output$download_button <- shiny::renderUI({
 
       tags$span(shiny::downloadButton(outputId = "download_query_results",
-                                      label = "Download"), tags$p("Download query results as xlsx"))
+                                      label = "Download Query Results as XLSX"))
     })
 
   })
