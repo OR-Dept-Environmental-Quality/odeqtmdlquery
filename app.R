@@ -9,7 +9,7 @@ library(bslib)
 options(dplyr.summarise.inform = FALSE)
 
 # odeqtmdl package version that app tables are based on.
-odeqtmdl_version <- "1.1.2"
+odeqtmdl_version <- "1.1.5"
 
 # Load data --------------------------------------------------------------------
 
